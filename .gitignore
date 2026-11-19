@@ -1,0 +1,5 @@
+*.local.md
+*.local.txt
+.DS_Store
+__pycache__/
+*.log

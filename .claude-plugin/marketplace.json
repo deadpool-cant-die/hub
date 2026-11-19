@@ -1,0 +1,11 @@
+{
+  "name": "deadpool-skills",
+  "owner": { "name": "deadpool-cant-die" },
+  "plugins": [
+    {
+      "name": "hub",
+      "source": "./plugins/hub",
+      "description": "Agent control-tower workflow on the Herdr app: hub:setup, session, layout, control, delegate, what-should-i-do, status, dont-waste-sessions, clawpod"
+    }
+  ]
+}
