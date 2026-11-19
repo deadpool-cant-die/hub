@@ -156,6 +156,14 @@ def main():
         res['ok'] = res['struct_ok'] and not res['resize']
         print(json.dumps(res, ensure_ascii=False))
 
+    if cmd == 'shape-blocks':
+        # 탭의 칸마다 "pane terminal 이름 wrapper" 한 줄 (이름 없으면 '-')
+        tree = next(t for _, t in tabs() if t['id'] == args[0])
+        for b in blocks(tree['root']):
+            i = info(b)
+            print(i['pane'], i['terminal'], i['name'] or '-', 'true' if i['wrapper'] else 'false')
+        return
+
     if cmd == 'members':
         # 탭에 보이는 세션 이름: head(이름이 -head로 끝나는 첫 칸) 한 줄, 나머지 worker 한 줄
         tree = next(t for _, t in tabs() if t['id'] == args[0])
