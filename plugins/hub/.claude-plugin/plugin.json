@@ -1,11 +1,11 @@
 {
   "name": "hub",
-  "version": "0.3.0",
+  "version": "0.1.0",
   "description": "Agent control-tower (Hub) workflow on the Herdr app: start/relaunch sessions, tab layouts, reporting and approvals, worker briefs, status, idle-session cleanup",
   "author": {
     "name": "deadpool-cant-die",
     "url": "https://github.com/deadpool-cant-die"
   },
-  "repository": "https://github.com/deadpool-cant-die/skills",
+  "repository": "https://github.com/deadpool-cant-die/hub",
   "license": "MIT"
 }

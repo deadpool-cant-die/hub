@@ -1,4 +1,4 @@
-# skills
+# hub
 
 매일 쓰는 Claude Code · Codex 플러그인 모음. (Claude Code and Codex plugins I use every day. Korean-first.)
 
@@ -41,14 +41,14 @@
 
 ### Claude Code
 ```sh
-claude plugin marketplace add deadpool-cant-die/skills
+claude plugin marketplace add deadpool-cant-die/hub
 claude plugin install hub@deadpool-skills --scope user
 ```
 새 세션부터 `/hub:` 로 보인다. 업데이트: `claude plugin marketplace update deadpool-skills`.
 
 ### Codex
 ```sh
-codex plugin marketplace add https://github.com/deadpool-cant-die/skills.git
+codex plugin marketplace add https://github.com/deadpool-cant-die/hub.git
 ```
 Codex를 다시 켠 뒤 `/plugins` → `deadpool skills` → `hub` 설치. 업데이트: `codex plugin marketplace upgrade deadpool-skills`.
 
