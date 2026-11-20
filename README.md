@@ -16,6 +16,7 @@
 
 | 스킬 | 한 줄 설명 | 부르기 (Claude Code / Codex) |
 |---|---|---|
+| `hub:hub-onboarding` | 처음 깐 사람용 단계별 안내: 도구 확인, 세션 하나 켜 보기, 탭 배치, 주요 스킬 5개, 토큰 주의 | `/hub:hub-onboarding` / "처음인데 어떻게 시작해" |
 | `hub:setup` | Hub 구조(Herdr 앱·`~/Hub` 폴더·tower 탭·head/worker)와 처음 세팅 순서, pstack·ponytail 권장 | `/hub:setup` / "허브 세팅 알려 줘" |
 | `hub:session` | 세션 켜기·같은 이름·탭·대화로 다시 켜기(`relaunch.sh`)·다른 탭으로 옮기기·끄기, 부모 없이 켜기 | `/hub:session` / "worker 하나 켜 줘", "이 세션 다시 켜" |
 | `hub:layout` | 탭 배치: 왼쪽 반 head, 오른쪽 반 worker 쌓기(4~6개면 두 열), head 없으면 같은 폭, tower 배치 — 이미 같으면 변화 없음 | `/hub:layout` / "탭 배치 맞춰" |
@@ -45,18 +46,28 @@
 
 ## 설치
 
-### Claude Code
+한 줄이면 됩니다(Claude Code와, 깔려 있으면 Codex에도):
 ```sh
-claude plugin marketplace add deadpool-cant-die/hub
-claude plugin install hub@deadpool-skills --scope user
+curl -fsSL https://raw.githubusercontent.com/deadpool-cant-die/hub/main/install.sh | sh
 ```
-새 세션부터 `/hub:` 로 보인다. 업데이트: `claude plugin marketplace update deadpool-skills`.
+필요한 것(Herdr 앱·`hc`·`jq` 등)이 없으면 무엇이 없는지 알려 줍니다. 끝나면:
 
-### Codex
+> 설치 끝! 이제 /hub:hub-onboarding 을 실행하세요
+
+이미 켜 둔 세션은 `/reload-plugins`를 한 번 입력하면 보입니다.
+
+직접 하려면:
+- Claude Code: `claude plugin marketplace add deadpool-cant-die/hub && claude plugin install hub@deadpool-skills --scope user`
+- Codex: `codex plugin marketplace add https://github.com/deadpool-cant-die/hub.git && codex plugin add hub@deadpool-skills`
+
+업데이트: `claude plugin marketplace update deadpool-skills` / `codex plugin marketplace upgrade deadpool-skills`.
+
+## 지우기
+
+한 줄로 플러그인과 마켓플레이스를 지웁니다. hub가 만든 폴더(`HUB_PRIVATE`, 기본 `~/.hub`)와 설정(`~/.config/hub`)은 지울지 물어봅니다:
 ```sh
-codex plugin marketplace add https://github.com/deadpool-cant-die/hub.git
+curl -fsSL https://raw.githubusercontent.com/deadpool-cant-die/hub/main/uninstall.sh | sh
 ```
-Codex를 다시 켠 뒤 `/plugins` → `deadpool skills` → `hub` 설치. 업데이트: `codex plugin marketplace upgrade deadpool-skills`.
 
 ### 같이 쓰면 좋은 것
 - [pstack-claude](https://github.com/michael-denyer/pstack-claude) — 작업 엔진(poteto-mode)
