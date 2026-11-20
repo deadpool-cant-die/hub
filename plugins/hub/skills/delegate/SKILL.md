@@ -9,7 +9,7 @@ description: Hub 관제가(hub:delegate) worker 세션에게 일을 맡길 때 �
 - worker 켜는 명령 → `hub:session`, 칸 배치 → `hub:layout`
 - 보고 흐름·승인 전달 → `hub:control`
 - 회사 전용 내용(레포 컨벤션 예·공유 서버·파일 위치) → 같은 폴더 `reference.local.md`(있을 때만, 회사·개인 전용이라 공개 레포엔 없음)
-- 웹 로그인·키 발급은 ego lite(ego-browser 스킬)로 직접 → 전역 `~/.claude/CLAUDE.md` "웹 계정 작업은 직접 처리"
+- 웹 로그인·키 발급은 Aside(aside-browser 스킬)로 직접 → 전역 `~/.claude/CLAUDE.md` "웹 계정 작업은 직접 처리"
 - 모델·effort 기본값 → 메모리 `feedback-model-effort-defaults`. 위임에 쓰지 않을 하네스가 있으면 메모리를 따른다
 
 ## 1. 지시서를 어디에
