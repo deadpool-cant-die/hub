@@ -38,8 +38,6 @@ rows = []
 if sys.argv[1:] == ['hub']:
     rows = scan(HUB, 'hub', 'hub:')
 else:
-    rows += scan(os.path.expanduser('~/.claude/skills'), '~/.claude/skills')
-    rows += scan(os.path.expanduser('~/.agents/skills'), '~/.agents/skills')
     try:
         plugins = json.loads(subprocess.run(['claude', 'plugin', 'list', '--json'], capture_output=True, text=True).stdout)
     except Exception:
@@ -50,6 +48,8 @@ else:
         base = p.get('readFromFolder') or p.get('installPath') or ''
         pid = p['id'].split('@')[0]
         rows += scan(os.path.join(base, 'skills'), 'plugin ' + p['id'], pid + ':')
+    rows += scan(os.path.expanduser('~/.claude/skills'), '~/.claude/skills')  # 플러그인 먼저: 심링크로 겹치면 플러그인 이름으로
+    rows += scan(os.path.expanduser('~/.agents/skills'), '~/.agents/skills')
     seen, uniq = set(), []
     for r in rows:  # 같은 폴더(심링크)는 한 번만
         if r[3] in seen:
