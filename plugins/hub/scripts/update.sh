@@ -1,13 +1,13 @@
 #!/bin/zsh
-# hub 플러그인을 원본 레포(공개 skills 레포 사본)와 맞추고, 설치·연결을 갱신하고, 떠 있는 세션에 다시 읽힌다.
+# hub 플러그인을 원본 레포(공개 hub 레포 사본)와 맞추고, 설치·연결을 갱신하고, 떠 있는 세션에 다시 읽힌다.
 #   1) 원본 레포 git pull --ff-only (작업 중 변경이 없을 때만)
 #   2) skills/·scripts/ 파일을 양쪽 비교: 한쪽에만 있으면 복사, 둘 다 있는데 다르면 더 최근에 바뀐 쪽이 이긴다
 #      (덮어쓰는 파일은 먼저 백업). 지운 파일은 따라 지우지 않고 알리기만. 로컬 전용(hooks/, types/, *.local.md, 매니페스트)은 안 건드림
 #   3) 다른 툴(Codex 등)이 읽는 ~/.agents/skills/hub-<이름> 심링크 중 빠진 것 추가
 #   4) reload-all.sh 로 떠 있는 Claude 세션에 /reload-plugins
 # 레포 쪽에 생긴 변경은 커밋·push하지 않는다(공개 검사 → 커밋 → push는 따로, 승인 뒤).
-# usage: update.sh [--dry-run] [--no-reload]     환경: HUB_REPO(기본 ~/Dev/skills), HUB_LOCAL(기본 이 플러그인 폴더)
-D=${0:A:h}; LOCAL=${HUB_LOCAL:-${D:h}}; REPO=${HUB_REPO:-$HOME/Dev/skills}; RP=$REPO/plugins/hub
+# usage: update.sh [--dry-run] [--no-reload]     환경: HUB_REPO(기본 ~/Dev/hub), HUB_LOCAL(기본 이 플러그인 폴더)
+D=${0:A:h}; LOCAL=${HUB_LOCAL:-${D:h}}; REPO=${HUB_REPO:-$HOME/Dev/hub}; RP=$REPO/plugins/hub
 dry=; reload=1; for a in $@; do [[ $a == --dry-run ]] && dry=1; [[ $a == --no-reload ]] && reload=; done
 BK=$HOME/.agents/disabled/hub-update-$(date +%Y%m%d-%H%M%S)
 say() { print -r -- "$*"; }

@@ -15,7 +15,7 @@ ${HUB_SCRIPTS}/update.sh              # 맞추고 다시 읽히기 (--no-reload:
 ```
 
 하는 일:
-1. 원본 레포(`HUB_REPO`, 기본 `~/Dev/skills`)를 `git pull --ff-only`(커밋 안 한 변경이 있으면 건너뜀).
+1. 원본 레포(`HUB_REPO`, 기본 `~/Dev/hub`)를 `git pull --ff-only`(커밋 안 한 변경이 있으면 건너뜀).
 2. `skills/`·`scripts/` 비교: 한쪽에만 있으면 복사, 다르면 더 최근에 바뀐 쪽으로. 덮어쓰는 파일은 `~/.agents/disabled/hub-update-<시각>/`에 백업. 지운 파일은 따라 지우지 않는다. 로컬 전용(`hooks/`, `types/`, `*.local.md`, 매니페스트)은 안 건드림.
 3. 다른 툴(Codex 등)이 읽는 `~/.agents/skills/hub-<이름>` 심링크 중 빠진 것 추가.
 4. `reload-all.sh`로 떠 있는 Claude 세션에 `/reload-plugins`.
