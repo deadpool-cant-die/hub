@@ -48,8 +48,8 @@ for line in open(sys.argv[1]):
     kind = 'codex' if t[0] == 'Codex' else 'claude'
     model = t[1].lower() if kind == 'claude' and len(t) > 1 else 'opus'
     effort = t[2] if len(t) > 2 and t[2] in ('low', 'medium', 'high') else 'medium'
-    print(kind, model, effort, '' if sid == '없음' else sid, os.path.expanduser(cwd), tab)
-    break
+    last = (kind, model, effort, '' if sid == '없음' else sid, os.path.expanduser(cwd), tab)  # 같은 이름이 여러 번이면 아래(나중) 줄
+if 'last' in dir(): print(*last)
 PY
 )"
   [[ -z $tool ]] && fail "살아 있지 않고 메모리 표에도 없음"
@@ -60,7 +60,9 @@ fi
 kind=direct; f=$(python3 -I $D/herdr_tree.py find $name 2>/dev/null) && { read fs ft fp kind <<<"$f"; S=${S:-$fs}; T=${T:-$ft}; }
 # hub-admin·hub-secretary는 Claude Code(Opus)만 허용 (2026-11-19 사용자 지시)
 [[ $name == (hub-admin|hub-secretary) && $tool != claude ]] && fail "$name 은 Claude만 허용(지금 $tool)"
-[[ $name == (hub-admin|hub-secretary) ]] && model=opus
+# 모델은 세션별 --model 플래그로만 고정(settings.json 기본값은 opus 유지, 세션 안 /model 금지). 2026-11-19 사용자: hub-secretary만 sonnet
+[[ $name == hub-admin ]] && model=opus
+[[ $name == hub-secretary ]] && model=sonnet
 pat="--resume $id"; [[ $tool == codex ]] && pat="resume $id"
 
 # 같은 대화가 이 세션 말고 다른 곳에 떠 있으면 거부

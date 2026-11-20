@@ -1,17 +1,30 @@
 {
   "name": "hub",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Agent control-tower (Hub) workflow on the Herdr app: start/relaunch sessions, tab layouts, reporting and approvals, worker briefs, status, idle-session cleanup",
-  "author": { "name": "deadpool-cant-die", "url": "https://github.com/deadpool-cant-die" },
+  "author": {
+    "name": "deadpool-cant-die",
+    "url": "https://github.com/deadpool-cant-die"
+  },
   "homepage": "https://github.com/deadpool-cant-die/skills/tree/main/plugins/hub",
   "repository": "https://github.com/deadpool-cant-die/skills",
   "license": "MIT",
-  "keywords": ["herdr", "hc", "agents", "orchestration", "control-tower"],
+  "keywords": [
+    "herdr",
+    "hc",
+    "agents",
+    "orchestration",
+    "control-tower"
+  ],
   "skills": "./skills/",
   "interface": {
     "displayName": "hub — agent control tower",
     "shortDescription": "Run many coding-agent sessions from one control tower on the Herdr app",
     "category": "Productivity",
-    "capabilities": ["Interactive", "Read", "Write"]
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ]
   }
 }
