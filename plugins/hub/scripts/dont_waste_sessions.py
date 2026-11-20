@@ -16,7 +16,18 @@ import json, os, subprocess, sys, time
 
 ENV = {k: v for k, v in os.environ.items() if k not in ('HC_TERMINAL_ID', 'HC_SCOPE')}
 IDLE_MIN = float(os.environ.get('DWS_IDLE_MIN', '120'))
-LOG = os.path.expanduser(os.environ.get('DWS_LOG', '~/Hub/private/scripts/dont-waste-sessions.log'))
+def _hub_private():
+    # hub-env.sh와 같은 순서: 환경 변수 → ~/.config/hub/config → ~/.hub
+    v = os.environ.get('HUB_PRIVATE')
+    cfg = os.path.expanduser(os.environ.get('HUB_CONFIG', '~/.config/hub/config'))
+    if not v and os.path.exists(cfg):
+        for line in open(cfg):
+            if line.startswith('HUB_PRIVATE='):
+                v = line.strip().split('=', 1)[1]
+    return os.path.expanduser(v or '~/.hub')
+
+
+LOG = os.path.expanduser(os.environ.get('DWS_LOG') or os.path.join(_hub_private(), 'scripts', 'dont-waste-sessions.log'))
 TOWER_NAMES = {'hub-admin', 'hub-secretary', 'hub-atlassian', 'hub-resource', 'hub-chat'}
 ASKING = ('Doyouwant', '❯1.', '›1.', '(y/n)', '[Y/n]', '[y/N]', 'trustthisfolder', 'Hooksneedreview',
           'Updateavailable', 'Pressenter', 'Enter to confirm', 'Entertoconfirm')

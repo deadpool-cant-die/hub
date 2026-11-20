@@ -1,9 +1,9 @@
 ---
-name: f-idle-session-delete-it
-description: 일 없이 대기 중인 세션 정리 — hc ls에서 대기 세션 중 열린 일·맡은 PR·사용자 결정 대기가 없는 것만 골라, resume id·폴더·탭을 세션 명단 메모리에 남기고 끔. tower·일하는 세션·사용자 셸은 안 끔. Trigger words - /hub:f-idle-session-delete-it, 노는 세션 꺼, 세션 정리해, 대기 세션 지워, 세션 너무 많아.
+name: kill-slacker-sessions
+description: 일 없이 대기 중인 세션 정리 — hc ls에서 대기 세션 중 열린 일·맡은 PR·사용자 결정 대기가 없는 것만 골라, resume id·폴더·탭을 세션 명단 메모리에 남기고 끔. tower·일하는 세션·사용자 셸은 안 끔. Trigger words - /hub:kill-slacker-sessions, 노는 세션 꺼, 세션 정리해, 대기 세션 지워, 세션 너무 많아.
 ---
 
-# 노는 세션 정리 (hub:f-idle-session-delete-it)
+# 노는 세션 정리 (hub:kill-slacker-sessions)
 
 > 같은 폴더에 `reference.local.md`가 있으면 먼저 읽는다(회사·이 컴퓨터 전용: 레포·도구 경로·사람·채팅 번호). 공개 사본엔 없다.
 > `HUB_SCRIPTS` = 이 플러그인의 `scripts/`(이 스킬 폴더 기준 `../../scripts`).

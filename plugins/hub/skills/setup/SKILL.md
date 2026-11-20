@@ -70,6 +70,12 @@ description: Hub(에이전트 작업 관제 본부)가 무엇이고 어떻게 �
 - [ ] Claude Code·Codex 폴더 신뢰는 `~/Dev`, `~/Hub`처럼 일하는 폴더만(홈 전체 신뢰 금지)
 - [ ] pstack-claude·ponytail 설치(3절)
 
+## 비공개 폴더 `HUB_PRIVATE`
+hub 스크립트가 로그·지시서·메모를 두는 곳. 정하는 순서: 환경 변수 `HUB_PRIVATE` → `~/.config/hub/config`의 `HUB_PRIVATE=…` 한 줄 → 기본 `~/.hub`(없으면 만듦). `hc run`으로 띄운 세션엔 셸 설정이 안 들어가니 컴퓨터별 값은 설정 파일에 둔다. 예: Hub 폴더 안 `private/`을 쓰려면
+```sh
+mkdir -p ~/.config/hub && echo "HUB_PRIVATE=<Hub 폴더>/private" >> ~/.config/hub/config
+```
+
 ## 5. 세부는 여기서
 
 | 하려는 일 | 스킬 |

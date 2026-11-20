@@ -1,5 +1,11 @@
 # hub
 
+계속 개선 중!!!!!!!!!!!!!!!
+
+> [!WARNING]
+> 여러 에이전트 세션을 동시에 띄우고 서로 보고·감시하는 방식이라 토큰을 많이 씁니다.
+> 아직 토큰 사용량을 줄이는 작업(최적화)은 하지 않았습니다. 사용량과 요금을 감안하고 쓰세요.
+
 매일 쓰는 Claude Code · Codex 플러그인 모음. (Claude Code and Codex plugins I use every day. Korean-first.)
 
 ## 플러그인 · 스킬 목록
@@ -29,7 +35,7 @@
 | `hub:update-jira` | 오늘 한 일 중 이슈 트래커에 빠진 것 채우기(댓글·완료·상태, 새 티켓은 초안) | `/hub:update-jira` / "지라 업뎃" |
 | `hub:remember-this` | 방금 정한 규칙·선호를 공용 메모리에 저장 | `/hub:remember-this` / "기억해" |
 | `hub:dont-piss-me-off` | 받은 피드백 규칙을 어긴 곳 점검, 고칠 건 고침 | `/hub:dont-piss-me-off` / "또 그러네" |
-| `hub:f-idle-session-delete-it` | 맡은 일 없는 대기 세션을 명단에 남기고 끄기(확인 뒤) | `/hub:f-idle-session-delete-it` / "노는 세션 꺼" |
+| `hub:kill-slacker-sessions` | 맡은 일 없는 대기 세션을 명단에 남기고 끄기(확인 뒤) | `/hub:kill-slacker-sessions` / "노는 세션 꺼" |
 | `hub:restore-everything` | 꺼진 Hub 되살리기: 같은 대화로 다시 켜고 배치·감시 맞춤 | `/hub:restore-everything` / "다 살려" |
 | `hub:reload-all-session-plugin` | 떠 있는 모든 Claude 세션에 `/reload-plugins` | `/hub:reload-all-session-plugin` / "전 세션 리로드" |
 | `hub:update` | 플러그인을 원본 레포와 맞추고 전 세션에 다시 읽힘 | `/hub:update` / "hub 업데이트" |

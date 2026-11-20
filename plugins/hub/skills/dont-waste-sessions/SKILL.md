@@ -26,7 +26,7 @@ ${HUB_SCRIPTS}/dont-waste-sessions.sh dry-run   # 지금 끌 대상만(아무것
 | 놀고 있음 | 상태 idle 또는 done(끝났는데 아직 안 봄), 마지막 상태 변화 후 **120분 이상** (`DWS_IDLE_MIN`) |
 | 안 끔 | 핀(📌), tower 탭 칸·hub-* tower 이름, 이름이 `-head`로 끝나는 칸, working·blocked, 화면이 질문을 띄운 상태(선택지·y/n·폴더 신뢰·훅·업데이트), 자식 세션이 있는 것, 부른 세션 자신 |
 | 끄는 법 | `hc kill`(대화 기록은 남음) |
-| 로그 | `~/Hub/private/scripts/dont-waste-sessions.log` (`DWS_LOG`): 시각·이름·idle 분·resume id·폴더·탭 |
+| 로그 | `$HUB_PRIVATE/scripts/dont-waste-sessions.log` (`DWS_LOG`): 시각·이름·idle 분·resume id·폴더·탭 |
 
 꺼진 세션 되살리기: `relaunch.sh <이름>`(`hub:session`). 살아 있지 않으면 세션 명단 표에서 찾으니, 로그의 resume id가 표와 다르면 표를 먼저 고친다.
 

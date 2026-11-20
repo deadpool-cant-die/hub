@@ -54,7 +54,7 @@ ${HUB_SCRIPTS}/relaunch.sh <이름>
 - 살아 있는 세션의 argv·폴더·탭 라벨에서 모델·effort·resume id·사내 CA를 읽는다. 꺼진 세션은 세션 명단 표(`HUB_SESSIONS_TABLE`, 기본: 공용 메모리의 최근 `reference-hub-sessions-*.md`)에서.
 - 같은 대화가 다른 곳에 떠 있으면(`pgrep -f "--resume <id>"`) **거부**하고 이유를 출력한다.
 - 일하는 중이면 끝날 때까지(최대 5분) 기다린 뒤 옛 칸을 끄고, 같은 이름·같은 탭으로 켠다. 첫 지시는 다시 보내지 않는다.
-- 2절 질문은 자동으로 답한다. OK/FAIL은 화면 너비가 아니라 `hc get`의 status·foreground로 판정, 로그 `HUB_LOG`(기본 `~/Hub/private/scripts/relaunch.log`).
+- 2절 질문은 자동으로 답한다. OK/FAIL은 화면 너비가 아니라 `hc get`의 status·foreground로 판정, 로그 `HUB_LOG`(기본 `$HUB_PRIVATE/scripts/relaunch.log`).
 - 끝에 tower 탭이면 `tower-layout.sh`, 다른 탭이면 `tab-layout.sh`로 칸 배치를 맞춘다(새 칸이 탭 끝에 붙기 때문).
 - **자기 자신**이면 독립 터미널로 넘겨, 지금 응답이 끝난 뒤 실행된다. 사용자에게 "답이 끝나면 다시 켜진다"고 먼저 알린다.
 - 여러 세션을 한꺼번에: 이름마다 차례로 부르고, 자기 자신은 맨 마지막.

@@ -13,7 +13,7 @@ description: 꺼졌거나 망가진 Hub 되살리기 — 세션 명단 메모리
 ## 1. 비교 (먼저 보여 줌)
 - 명단: 공용 메모리 최신 `reference-hub-sessions-*.md`(이름·도구·모델·폴더·탭·resume id).
 - 실제: `hc ls --json`(살아 있는 이름), `${HUB_SCRIPTS}/ids.sh Hub`(탭·칸·app·status).
-- 명단이 오늘 것이 아니면, 그 뒤에 일부러 끈 세션(정리·`f-idle-session-delete-it`·`dont-waste-sessions` 로그)일 수 있다. 그런 세션은 "끈 기록 있음"으로 표시하고 되살리기 전에 사용자에게 확인한다.
+- 명단이 오늘 것이 아니면, 그 뒤에 일부러 끈 세션(정리·`kill-slacker-sessions`·`dont-waste-sessions` 로그)일 수 있다. 그런 세션은 "끈 기록 있음"으로 표시하고 되살리기 전에 사용자에게 확인한다.
 - 표로: `이름 / 명단 탭 / 지금(살아 있음·꺼짐·다른 탭·래퍼 칸) / 할 일`.
 - 탭 자체가 없으면(예: tower 탭이 닫힘) 먼저 `herdr-app do tab.new '{"name":…,"space":…,"focus":false}'`.
 

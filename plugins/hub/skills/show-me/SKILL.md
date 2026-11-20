@@ -14,7 +14,7 @@ description: 가장 최근 결과물 바로 띄우기 — 최근 시안·캡처�
 
 ## 찾기 (최근 것부터)
 1. 이 대화·최근 보고에서 말한 결과물 경로·주소.
-2. 최근 2시간 안에 바뀐 이미지·HTML·PDF: `find ~/Hub/private ~/Documents ~/Desktop ~/Downloads -newermt "-2 hours" \( -name '*.png' -o -name '*.jpg' -o -name '*.html' -o -name '*.pdf' -o -name '*.mp4' \)` 와 worker 레포의 산출물 폴더.
+2. 최근 2시간 안에 바뀐 이미지·HTML·PDF: `find "$HUB_PRIVATE" ~/Documents ~/Desktop ~/Downloads -newermt "-2 hours" \( -name '*.png' -o -name '*.jpg' -o -name '*.html' -o -name '*.pdf' -o -name '*.mp4' \)` 와 worker 레포의 산출물 폴더.
 3. 떠 있는 로컬 미리보기 서버: `lsof -iTCP -sTCP:LISTEN -P | grep -E 'node|python|vite|next'` → 주소.
 
 ## 열기

@@ -14,7 +14,7 @@ description: 오늘 한 일 보기 — 레포·PR·배포·이슈 트래커·문
 - 커밋·PR: 레포마다 `git log --since=midnight --all --format='%ci %h %s'`, `gh pr list --author @me --state all --search "updated:>=<오늘>"` (머지 시각 포함).
 - 배포: `gh run list --created ">=<오늘>"`, 오늘 만든 태그.
 - 이슈 트래커: 오늘 내가 단 댓글·상태 변경.
-- 문서: 업무 문서 폴더·`~/Hub/private`에서 오늘 바뀐 파일(`find … -newermt <오늘>`).
+- 문서: 업무 문서 폴더·`$HUB_PRIVATE`에서 오늘 바뀐 파일(`find … -newermt <오늘>`).
 - 디자인 게시: 디자인 서버에 오늘 올린 페이지(탭 README·보고 기록).
 - `~/Hub/TODO.md` 오늘 절·끝 절.
 

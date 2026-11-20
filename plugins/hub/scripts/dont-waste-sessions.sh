@@ -6,12 +6,12 @@
 #   dry-run  : 지금 끌 대상만 보여 준다(아무것도 안 끔)
 # 기준은 dont_waste_sessions.py 맨 위 설명. idle 기준은 DWS_IDLE_MIN(기본 120분).
 H() { env -u HC_TERMINAL_ID -u HC_SCOPE hc "$@"; }
-D=${0:A:h}; N=dont-waste-sessions; LOG=${DWS_LOG:-$HOME/Hub/private/scripts/dont-waste-sessions.log}
+D=${0:A:h}; source $D/hub-env.sh; N=dont-waste-sessions; LOG=${DWS_LOG:-$HUB_PRIVATE/scripts/dont-waste-sessions.log}
 running() { [[ $(H get $N --json 2>/dev/null | jq -r '.state // ""') == live ]]; }
 case ${1:-} in
   on)  min=${2:-30}; (( min < 5 )) && min=5
        running && H kill $N >/dev/null
-       H run --bg --no-parent --name $N --cwd $HOME -- env DWS_IDLE_MIN=${DWS_IDLE_MIN:-120} python3 -I $D/dont_waste_sessions.py loop $min >/dev/null \
+       H run --bg --no-parent --name $N --cwd $HOME -- env HUB_PRIVATE=$HUB_PRIVATE DWS_LOG=$LOG DWS_IDLE_MIN=${DWS_IDLE_MIN:-120} python3 -I $D/dont_waste_sessions.py loop $min >/dev/null \
          && echo "on: ${min}분마다, idle ${DWS_IDLE_MIN:-120}분 이상 세션 끔 (터미널 $N, 로그 $LOG)" ;;
   off) running && { H kill $N >/dev/null; echo "off"; } || echo "이미 꺼져 있음" ;;
   status) running && echo "켜짐: $(H get $N --json | jq -r '.argv|join(" ")' | grep -o 'loop [0-9]*')분 간격" || echo "꺼짐"

@@ -10,7 +10,7 @@
 # - OK/FAIL은 화면 너비와 상관없이 hc get의 status·foreground로 판정. 끝에 tower 탭이면 tower-layout.sh, 다른 탭이면 tab-layout.sh로 칸을 맞춘다.
 name=${1:?usage: relaunch.sh <이름>}
 H() { env -u HC_TERMINAL_ID -u HC_SCOPE hc "$@"; }
-D=${0:A:h}; LOG=${HUB_LOG:-$HOME/Hub/private/scripts/relaunch.log}
+D=${0:A:h}; source $D/hub-env.sh; LOG=${HUB_LOG:-$HUB_PRIVATE/scripts/relaunch.log}
 # 세션 명단 표(꺼진 세션용): 기본은 공용 메모리의 가장 최근 reference-hub-sessions-*.md
 MEM=${HUB_SESSIONS_TABLE:-$(ls -t $HOME/.agents/memory/reference-hub-sessions-*.md 2>/dev/null | head -1)}
 TOWER=$(herdr-app ls | jq -r '[.spaces[].tabs[]|select(.name=="tower")][0].id // empty')

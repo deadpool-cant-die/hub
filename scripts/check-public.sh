@@ -1,4 +1,5 @@
 #!/bin/zsh
+[ -n "$ZSH_VERSION" ] || exec zsh "$0" "$@"  # bash·sh로 불러도 zsh로(bash로는 배열 문법이 깨져 0개 검사가 됨)
 # 공개 레포에 올리기 전 검사: 비밀값 모양, IP·.local 호스트, 개인 경로, (있으면) blocked-words.local.txt의 금지어.
 # usage: scripts/check-public.sh   (git에 올라갈 파일만 검사, *.local.md는 .gitignore라 제외) — 하나라도 걸리면 종료 코드 1
 cd ${0:A:h}/..
