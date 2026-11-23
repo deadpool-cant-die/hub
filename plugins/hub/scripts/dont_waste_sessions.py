@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
-"""놀고 있는 에이전트 세션을 찾아 끈다(hub:dont-waste-sessions).
+"""놀고 있는 Orca worker·에이전트 터미널을 찾아 닫는다(hub:dont-waste-sessions).
 
 usage:
-  dont_waste_sessions.py sweep [--dry-run]   한 번 훑기 (--dry-run: 끌 목록만 출력)
+  dont_waste_sessions.py sweep [--dry-run]   한 번 훑기 (--dry-run: 닫을 목록만 출력)
   dont_waste_sessions.py loop <분>           <분>마다 sweep (on이 이걸 띄움)
 
-끄는 조건(모두 맞아야 끔):
-  - 에이전트(상태를 알리는 터미널)이고 이름이 있음
-  - 상태가 idle 또는 done이고, 마지막 상태 변화가 DWS_IDLE_MIN분(기본 120) 이상 전
-끄지 않는 것: 핀, tower 탭 칸, 이름이 -head로 끝나는 칸, hub-* tower 이름, working·blocked,
-  화면이 사용자 답을 기다리는 질문(선택지·y/n·신뢰·훅·업데이트), 자식 세션이 있는 것, 이 스크립트를 부른 세션.
-끈 세션은 로그에 이름·resume id·폴더·탭을 남긴다(relaunch.sh <이름>로 되살릴 수 있게).
+닫는 것(모두 맞아야):
+  - worker(orca orchestration worker-list): 일이 끝났고(completed) 터미널이 아직 열려 있으며,
+    끝난 지 DWS_IDLE_MIN분(기본 120) 이상 → orca orchestration worker-release (출력은 남음)
+  - 봇 밖 에이전트 터미널(orca agent list, kind=terminal): 상태 done, 마지막 변화가 DWS_IDLE_MIN분 이상 전
+    → orca terminal close
+닫지 않는 것: 봇 채팅(Orca 채팅은 전부), 핀 꽂은 워크스페이스, 봇 home, working·blocked·waiting,
+  일이 안 끝난 worker, 사람 답을 기다리는 worker, 화면이 질문을 띄운 터미널(선택지·y/n·신뢰·훅·업데이트),
+  이 스크립트를 부른 터미널.
+닫은 것은 로그에 시각·이름·idle 분·dispatch/터미널·워크스페이스를 남긴다(worker 출력은 worker-read로 계속 읽힘).
 """
 import json, os, subprocess, sys, time
+from datetime import datetime
 
-ENV = {k: v for k, v in os.environ.items() if k not in ('HC_TERMINAL_ID', 'HC_SCOPE')}
 IDLE_MIN = float(os.environ.get('DWS_IDLE_MIN', '120'))
+
+
 def _hub_private():
     # hub-env.sh와 같은 순서: 환경 변수 → ~/.config/hub/config → ~/.hub
     v = os.environ.get('HUB_PRIVATE')
@@ -28,75 +33,77 @@ def _hub_private():
 
 
 LOG = os.path.expanduser(os.environ.get('DWS_LOG') or os.path.join(_hub_private(), 'scripts', 'dont-waste-sessions.log'))
-TOWER_NAMES = {'hub-admin', 'hub-secretary', 'hub-atlassian', 'hub-resource', 'hub-chat'}
 ASKING = ('Doyouwant', '❯1.', '›1.', '(y/n)', '[Y/n]', '[y/N]', 'trustthisfolder', 'Hooksneedreview',
-          'Updateavailable', 'Pressenter', 'Enter to confirm', 'Entertoconfirm')
-ME = os.environ.get('HC_TERMINAL_ID', '')
+          'Updateavailable', 'Pressenter', 'Entertoconfirm')
+ME = os.environ.get('ORCA_TERMINAL_HANDLE', '')
 
 
-def hc(*a):
-    return subprocess.run(['hc', *a], capture_output=True, text=True, env=ENV)
+def orca(*a):
+    r = subprocess.run(['orca', *a, '--json'], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError('orca %s: %s' % (' '.join(a), (r.stderr or r.stdout).strip()[:200]))
+    return json.loads(r.stdout)['result']
 
 
-def get(a):
-    r = hc('get', a, '--json')
-    return json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else {}
-
-
-def tower_tab():
+def asking(handle):
     try:
-        sp = json.loads(subprocess.run(['herdr-app', 'ls'], capture_output=True, text=True).stdout)['spaces']
-        return {t['id'] for s in sp for t in s['tabs'] if t.get('name') == 'tower'}
-    except Exception:
-        return set()
+        tail = orca('terminal', 'read', '--terminal', handle, '--screen')['terminal'].get('tail') or []
+    except RuntimeError:
+        return False
+    scr = ''.join(tail).replace(' ', '')
+    return any(p in scr for p in ASKING)
 
 
-def why_keep(g, children, towers, now):
-    st = g.get('status') or {}
-    lab = g.get('labels') or {}
-    name = g.get('name') or ''
-    if not st.get('app'): return '에이전트 아님'
-    if not name: return '이름 없음'
-    if g.get('address') == ME or name.startswith('dont-waste'): return '자기 자신'
-    if st.get('state') not in ('idle', 'done'): return 'state=%s' % st.get('state')
-    idle = (now - (g.get('status_ms') or now)) / 60000
-    if idle < IDLE_MIN: return 'idle %d분' % idle
-    if lab.get('herdr.pinned') == '1': return '핀'
-    if name in TOWER_NAMES or lab.get('herdr.tab') in towers or (lab.get('where') or '').endswith('/ tower'): return 'tower'
-    if name.endswith('-head'): return 'head'
-    if children.get(g['address']): return '자식 있음(%s)' % ','.join(children[g['address']])
-    scr = hc('read', g['address'], '--lines', '0').stdout.replace(' ', '').replace('\n', '')
-    if any(p.replace(' ', '') in scr for p in ASKING): return '사용자 답 기다리는 화면'
-    return None
+def candidates(now):
+    """(종류, 이름, idle분, 대상 id, 워크스페이스) 목록. 종류: worker | terminal"""
+    wts = {w['worktreeId']: w for w in orca('worktree', 'ps', '--limit', '500')['worktrees']}
+    keep = lambda wt: (wts.get(wt) or {}).get('isPinned') or (wts.get(wt) or {}).get('botHome')
+    out, worker_terms = [], set()
+    for w in orca('orchestration', 'worker-list', '--limit', '100')['workers']:
+        worker_terms.add(w.get('terminal'))
+        if w.get('state') not in ('succeeded', 'failed') or w.get('liveness') != 'live' or w.get('terminal') == ME:
+            continue
+        if w.get('terminalState') not in ('retained', 'reclaimable') or keep(w.get('workspace')):
+            continue
+        r = orca('orchestration', 'worker-show', '--dispatch', w['dispatchId'], '--full')
+        done = (r.get('dispatch') or {}).get('completedAt')
+        if not done or r.get('waitingOnHuman'):
+            continue
+        idle = (now - datetime.fromisoformat(done.replace('Z', '+00:00')).timestamp()) / 60
+        if idle >= IDLE_MIN:
+            name = (wts.get(w.get('workspace')) or {}).get('displayName') or w['dispatchId']
+            out.append(('worker', name, idle, w['dispatchId'], w.get('workspace', '')))
+    handles = {t['tabId'] + ':' + t['leafId']: t['handle'] for t in orca('terminal', 'list')['terminals']}
+    for a in orca('agent', 'list')['agents']:
+        h = handles.get(a.get('paneKey'))
+        if a.get('kind') != 'terminal' or a.get('state') != 'done' or not h or h == ME or h in worker_terms:
+            continue
+        if keep(a.get('worktreeId')) or (wts.get(a.get('worktreeId')) or {}).get('bot'):
+            continue
+        idle = (now - (a.get('updatedAt') or now * 1000) / 1000) / 60
+        if idle >= IDLE_MIN and not asking(h):
+            out.append(('terminal', a.get('title') or h, idle, h, a.get('worktreeId', '')))
+    return out
 
 
 def sweep(dry):
-    now = time.time() * 1000
-    towers = tower_tab()
-    addrs = [t['address'] for t in json.loads(hc('ls', '--json').stdout)['terminals'] if t.get('state') == 'live']
-    gs = [g for g in (get(a) for a in addrs) if g]
-    children = {}
-    for g in gs:
-        if g.get('parent'):
-            children.setdefault(g['parent'], []).append(g.get('name') or g['address'])
-    killed = 0
-    for g in gs:
-        if why_keep(g, children, towers, now):
-            continue
-        argv, lab = g.get('argv') or [], g.get('labels') or {}
-        sid = argv[argv.index('--resume') + 1] if '--resume' in argv[:-1] else \
-            argv[argv.index('resume') + 1] if 'resume' in argv[:-1] else lab.get('revive.session', '')
-        idle = int((now - g['status_ms']) / 60000)
-        line = '%s\t%s\t%s\tidle %d분\tresume %s\t%s\t%s' % (
-            time.strftime('%F %T'), 'DRY' if dry else 'KILL', g['name'], idle, sid,
-            lab.get('revive.cwd') or g.get('cwd'), lab.get('where', ''))
+    n = 0
+    for kind, name, idle, target, ws in candidates(time.time()):
+        line = '%s\t%s\t%s\t%s\tidle %d분\t%s\t%s' % (time.strftime('%F %T'), 'DRY' if dry else 'CLOSE', kind, name, idle, target, ws)
         print(line)
         if not dry:
-            hc('kill', g['address'])
+            try:
+                if kind == 'worker':
+                    orca('orchestration', 'worker-release', '--dispatch', target)
+                else:
+                    orca('terminal', 'close', '--terminal', target)
+            except RuntimeError as e:
+                line += '\t실패: %s' % e
+                print('  실패: %s' % e)
             os.makedirs(os.path.dirname(LOG), exist_ok=True)
             open(LOG, 'a').write(line + '\n')
-        killed += 1
-    print('%s: %d개 %s (기준 idle %d분 이상)' % (time.strftime('%T'), killed, '끌 대상' if dry else '끔', IDLE_MIN))
+        n += 1
+    print('%s: %d개 %s (기준 idle %d분 이상)' % (time.strftime('%T'), n, '닫을 대상' if dry else '닫음', IDLE_MIN))
 
 
 if __name__ == '__main__':

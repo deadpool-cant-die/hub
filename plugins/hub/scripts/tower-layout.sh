@@ -1,4 +1,5 @@
 #!/bin/zsh
+# (Herdr 시절) Herdr 앱 전용 — Orca엔 해당 없음(hub:session). Herdr를 끌 때 지운다.
 # tower 탭 배치: 위 얇은 띠(15%) = hub-resource | hub-atlassian, 아래(85%) = hub-admin | hub-secretary.
 # 각 줄 1:1, 네 칸 핀, 탭 이름 tower. 이미 그 모양이면 아무것도 안 한다(여러 번 돌려도 같은 결과).
 # 진짜 세션 칸을 그대로 옮긴다(빈 칸 → 자리 바꾸기, layout-lib.sh): 칸마다 이름·app·상태가 그대로 보인다.

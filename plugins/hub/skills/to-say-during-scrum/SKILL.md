@@ -8,7 +8,7 @@ description: 스크럼에서 말할 것 정리 — 어제 한 것 / 오늘 할 �
 > 같은 폴더에 `reference.local.md`가 있으면 먼저 읽는다(회사·이 컴퓨터 전용: 레포·도구 경로·사람·채팅 번호). 공개 사본엔 없다.
 > `HUB_SCRIPTS` = 이 플러그인의 `scripts/`(이 스킬 폴더 기준 `../../scripts`).
 
-공통: 답은 짧게, 쉬운 한국어, 맨 앞에 `[HUB]`(레포 하나 얘기면 `[레포이름]`). **실제로 확인한 사실만** 쓴다(이슈 트래커, git, gh, hc, 메모리, TODO.md). 확인 못 한 건 "확인 못 함"이라고 적는다.
+공통: 답은 짧게, 쉬운 한국어, 맨 앞에 `[HUB]`(레포 하나 얘기면 `[레포이름]`). **실제로 확인한 사실만** 쓴다(이슈 트래커, git, gh, orca, 메모리, TODO.md). 확인 못 한 건 "확인 못 함"이라고 적는다.
 
 ## 모으기 (읽기만)
 1. 어제·오늘 내 커밋·PR: 쓰는 레포마다 `git log --since="yesterday 00:00" --author=<내 계정> --oneline --all`, `gh pr list --author @me --state all --search "updated:>=<어제>"`.

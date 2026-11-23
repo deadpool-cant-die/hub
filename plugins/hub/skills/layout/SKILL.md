@@ -1,9 +1,11 @@
 ---
 name: layout
-description: Herdr 앱 탭·칸 배치. 새 탭 만들기, 탭 배치(왼쪽 반 head, 오른쪽 반 worker 위아래 쌓기, 4~6개면 두 열 격자, head 없으면 같은 폭)를 tab-layout.sh로, tower 탭 배치를 tower-layout.sh로 맞추기(이미 같으면 변화 없음), 칸 크기·자리·핀·탭 이름. 포커스 이동 없이. Trigger words - 탭 만들어, 탭 배치, 칸 배치, 칸 정리, 레이아웃, 칸 나눠, 반반, 1:1, 칸 크기, 자리 바꿔, 쌓아, 2열, 핀, 탭 이름, tower 배치.
+description: (Herdr 시절) Herdr 앱 탭·칸 배치 — Orca에는 해당 없음. 새 탭 만들기, 탭 배치(왼쪽 반 head, 오른쪽 반 worker 위아래 쌓기, 4~6개면 두 열 격자, head 없으면 같은 폭)를 tab-layout.sh로, tower 탭 배치를 tower-layout.sh로 맞추기(이미 같으면 변화 없음), 칸 크기·자리·핀·탭 이름. 포커스 이동 없이. Trigger words - 탭 만들어, 탭 배치, 칸 배치, 칸 정리, 레이아웃, 칸 나눠, 반반, 1:1, 칸 크기, 자리 바꿔, 쌓아, 2열, 핀, 탭 이름, tower 배치.
 ---
 
-# 탭·칸 배치
+# (Herdr 시절) 탭·칸 배치
+
+> **Orca에는 해당 없음.** Orca는 봇·worker 단위로 일하고 칸 배치를 맞출 필요가 없다(`hub:session`). 이 스킬과 `tab-layout.sh`·`tower-layout.sh`·`layout-lib.sh`는 Herdr 앱을 쓸 때만, Herdr를 끌 때 지운다.
 
 > `HUB_SCRIPTS` = 이 플러그인의 `scripts/` 폴더(이 스킬 폴더 기준 `../../scripts`). 예: `HUB_SCRIPTS=<스킬 Base directory>/../../scripts`
 

@@ -1,7 +1,7 @@
 {
   "name": "hub",
   "version": "0.2.0",
-  "description": "Agent control-tower (Hub) workflow on the Herdr app: start/relaunch sessions, tab layouts, reporting and approvals, worker briefs, status, idle-session cleanup",
+  "description": "Agent control-tower (Hub) workflow on the Orca app: bots and workers, reporting and approvals, worker briefs, status, idle-worker cleanup",
   "author": {
     "name": "deadpool-cant-die",
     "url": "https://github.com/deadpool-cant-die"
@@ -10,8 +10,7 @@
   "repository": "https://github.com/deadpool-cant-die/hub",
   "license": "MIT",
   "keywords": [
-    "herdr",
-    "hc",
+    "orca",
     "agents",
     "orchestration",
     "control-tower"
@@ -19,7 +18,7 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "hub — agent control tower",
-    "shortDescription": "Run many coding-agent sessions from one control tower on the Herdr app",
+    "shortDescription": "Run many coding-agent bots and workers from one control tower on the Orca app",
     "category": "Productivity",
     "capabilities": [
       "Interactive",

@@ -1,4 +1,5 @@
 #!/bin/zsh
+# (Herdr 시절) Herdr 앱 전용 — Orca엔 해당 없음(hub:session). Herdr를 끌 때 지운다.
 # 세션 하나를 같은 이름·같은 탭·같은 대화(resume)로 다시 켠다.  usage: relaunch.sh <이름>
 # - 정보: 살아 있으면 hc get(argv·폴더·탭 라벨), 없으면 세션 명단 표(HUB_SESSIONS_TABLE).
 # - 같은 대화가 다른 곳에 이미 떠 있으면(pgrep "--resume <id>" / "resume <id>") 아무것도 안 하고 거부한다.
