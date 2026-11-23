@@ -10,21 +10,21 @@
 
 ## 플러그인 · 스킬 목록
 
-### hub — 에이전트 관제 본부 (Herdr 앱)
+### hub — 에이전트 관제 본부 (Orca 앱)
 
-코딩 에이전트 세션 여러 개를 Herdr 앱 위에서 한 "관제 본부"로 굴리는 작업 방식. 세션 실행·메시지는 `hc`, 탭·칸은 `herdr-app`.
+코딩 에이전트 여러 개를 Orca 앱 위에서 한 "관제 본부"로 굴리는 작업 방식. 봇(`bot:<이름>`)과 worker, 메시지는 `orca orchestration`. (Herdr 시절) Herdr 앱(`hc`, `herdr-app`)은 선택·옛 방식으로 남아 있고, `hub:layout`과 각 스킬의 "(Herdr 시절)" 절에서 씁니다.
 
 | 스킬 | 한 줄 설명 | 부르기 (Claude Code / Codex) |
 |---|---|---|
-| `hub:hub-onboarding` | 처음 깐 사람용 단계별 안내: 도구 확인, 세션 하나 켜 보기, 탭 배치, 주요 스킬 5개, 토큰 주의 | `/hub:hub-onboarding` / "처음인데 어떻게 시작해" |
-| `hub:setup` | Hub 구조(Herdr 앱·`~/Hub` 폴더·tower 탭·head/worker)와 처음 세팅 순서, pstack·ponytail 권장 | `/hub:setup` / "허브 세팅 알려 줘" |
-| `hub:session` | 세션 켜기·같은 이름·탭·대화로 다시 켜기(`relaunch.sh`)·다른 탭으로 옮기기·끄기, 부모 없이 켜기 | `/hub:session` / "worker 하나 켜 줘", "이 세션 다시 켜" |
-| `hub:layout` | 탭 배치: 왼쪽 반 head, 오른쪽 반 worker 쌓기(4~6개면 두 열), head 없으면 같은 폭, tower 배치 — 이미 같으면 변화 없음 | `/hub:layout` / "탭 배치 맞춰" |
+| `hub:hub-onboarding` | 처음 깐 사람용 단계별 안내: 도구(Orca) 확인, worker 하나 켜 보기, 봇 만들기, 주요 스킬 5개, 토큰 주의 | `/hub:hub-onboarding` / "처음인데 어떻게 시작해" |
+| `hub:setup` | Hub 구조(Orca 앱·`~/Hub` 폴더·관제 봇·레포 봇·worker)와 처음 세팅 순서, pstack·ponytail 권장 | `/hub:setup` / "허브 세팅 알려 줘" |
+| `hub:session` | worker 켜기(`worker-start --worktree new-child --name`)·이어 가기(봇 채팅은 이어짐)·끄기(`worker-stop`), Herdr 시절 relaunch 방법도 | `/hub:session` / "worker 하나 켜 줘" |
+| `hub:layout` | (Herdr 시절, 선택) Herdr 탭 배치: 왼쪽 반 head, 오른쪽 반 worker 쌓기(4~6개면 두 열), head 없으면 같은 폭, tower 배치 — 이미 같으면 변화 없음 | `/hub:layout` / "탭 배치 맞춰" |
 | `hub:control` | 관제 흐름: 누가 누구에게 지시·보고하나, `[사용자 승인]` 전달, `TODO.md` 운영, 답 형식 | `/hub:control` / "진행 상황 모아 줘" |
 | `hub:delegate` | worker에게 줄 지시서 틀(규칙 원문 먼저·레포 컨벤션·공개 레포 주의)과 위임 전후 설정 파일 점검 | `/hub:delegate` / "이거 worker한테 시켜" |
 | `hub:what-should-i-do` | 지금 내가 할 일과 전체 진행 상황을 짧게(TODO.md + 실제 세션 상태 대조) | `/hub:what-should-i-do` / "뭐 해야 돼?" |
-| `hub:status` | 떠 있는 세션을 스페이스·탭별로 한눈에: 상태(일하는 중·막힘·끝남·대기)·핀·하는 일 | `/hub:status` / "다들 뭐 해?" |
-| `hub:dont-waste-sessions` | 노는 세션을 주기적으로 찾아 끄기(`on [분]`/`off`/`status`/`dry-run`), 핀·head·tower·작업 중은 제외, resume id 로그 | `/hub:dont-waste-sessions on 30` / "노는 세션 정리해" |
+| `hub:status` | Orca에 떠 있는 에이전트를 봇별로 한눈에: 상태(일하는 중·막힘·끝남)·핀·마지막으로 한 말 | `/hub:status` / "다들 뭐 해?" |
+| `hub:dont-waste-sessions` | 끝난 worker·노는 터미널을 주기적으로 닫기(`on [분]`/`off`/`status`/`dry-run`), 봇 채팅·핀·작업 중은 제외, 로그 남김 | `/hub:dont-waste-sessions on 30` / "노는 세션 정리해" |
 | `hub:clawpod` | ClawPod 에이전트를 웹 없이 MCP로만 부리기: 일 시키기·답장 감시·안 되는 것 기록 | `/hub:clawpod` / "클로팟 에이전트한테 시켜" |
 | `hub:to-say-during-scrum` | 스크럼에서 말할 것: 어제·오늘·블로커 각 2~4줄, 티켓 번호 | `/hub:to-say-during-scrum` / "스크럼 뭐 말하지" |
 | `hub:what-did-i-do-today` | 오늘 한 일을 시간순으로: 끝남·진행 중·기다림 | `/hub:what-did-i-do-today` / "오늘 뭐 했지" |
@@ -47,7 +47,7 @@
 ```sh
 curl -fsSL https://raw.githubusercontent.com/deadpool-cant-die/hub/main/install.sh | sh
 ```
-필요한 것(Herdr 앱·`hc`·`jq` 등)이 없으면 무엇이 없는지 알려 줍니다. 끝나면:
+필요한 것(Orca 앱·`orca`·`jq` 등)이 없으면 무엇이 없는지 알려 줍니다. Herdr 앱은 선택(옛 방식)이라 없어도 됩니다. 끝나면:
 
 > 설치 끝! 이제 /hub:hub-onboarding 을 실행하세요
 
@@ -69,7 +69,8 @@ curl -fsSL https://raw.githubusercontent.com/deadpool-cant-die/hub/main/uninstal
 ### 같이 쓰면 좋은 것
 - [pstack-claude](https://github.com/michael-denyer/pstack-claude) — 작업 엔진(poteto-mode)
 - [ponytail](https://github.com/DietrichGebert/ponytail) — 가장 단순한 해법 모드
-- Herdr 앱(`herdr-app`, `hc`) — hub 스킬의 전제
+- Orca 앱(`orca`) — hub 스킬의 전제
+- (Herdr 시절) Herdr 앱(`herdr-app`, `hc`) — 선택·옛 방식, `hub:layout`과 "(Herdr 시절)" 절에서만
 
 ## 로컬 전용 메모
 
