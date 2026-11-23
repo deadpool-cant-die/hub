@@ -48,7 +48,7 @@ ${HUB_SCRIPTS}/tab-layout.sh <tab id>            # 왼쪽 반 head, 오른쪽 wo
 2. `/hub:status` — 떠 있는 세션 한눈에
 3. `/hub:what-should-i-do` — 할 일 정리(`<Hub 폴더>/TODO.md`가 있으면)
 4. `/hub:what-did-i-do-today` — 오늘 한 일(git·PR 기준)
-5. `/hub:why-stuck` — 무엇을 기다리는지
+5. `/hub:how-is-deploy` — 배포 어디까지 갔는지
 
 ## 5. 정리
 - 시험 세션 끄기: `hc kill try-worker; hc kill try-head`, 시험 탭 닫기 `herdr-app do tab.close '{"id":"<tab id>","confirmed":true}'`.

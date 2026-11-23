@@ -30,11 +30,8 @@
 | `hub:what-did-i-do-today` | 오늘 한 일을 시간순으로: 끝남·진행 중·기다림 | `/hub:what-did-i-do-today` / "오늘 뭐 했지" |
 | `hub:praise-me` | 오늘 해낸 것을 실제 기록 근거로 짧게 칭찬 | `/hub:praise-me` / "나 잘했지" |
 | `hub:how-is-deploy` | 레포별 열린 PR·CI·최신 태그·배포 실행, 멈춘 곳과 이유 | `/hub:how-is-deploy` / "배포 어디까지" |
-| `hub:why-stuck` | 왜 오래 걸리나: 무엇을 기다리는지 한 줄씩, 이미 끝난 기다림은 바로 알림 | `/hub:why-stuck` / "왜 이렇게 오래 걸려" |
 | `hub:show-me` | 가장 최근 결과물을 바로 띄우고 달라진 점 세 줄 | `/hub:show-me` / "보여줘" |
-| `hub:send-msg` | 메신저 보내기: 받는 사람 찾기, 말투 규칙, 초안 먼저, "보내"라고 하면 전송 | `/hub:send-msg` / "이거 보내" |
 | `hub:update-jira` | 오늘 한 일 중 이슈 트래커에 빠진 것 채우기(댓글·완료·상태, 새 티켓은 초안) | `/hub:update-jira` / "지라 업뎃" |
-| `hub:remember-this` | 방금 정한 규칙·선호를 공용 메모리에 저장 | `/hub:remember-this` / "기억해" |
 | `hub:dont-piss-me-off` | 받은 피드백 규칙을 어긴 곳 점검, 고칠 건 고침 | `/hub:dont-piss-me-off` / "또 그러네" |
 | `hub:kill-slacker-sessions` | 맡은 일 없는 대기 세션을 명단에 남기고 끄기(확인 뒤) | `/hub:kill-slacker-sessions` / "노는 세션 꺼" |
 | `hub:restore-everything` | 꺼진 Hub 되살리기: 같은 대화로 다시 켜고 배치·감시 맞춤 | `/hub:restore-everything` / "다 살려" |
