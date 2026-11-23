@@ -13,8 +13,10 @@ miss=0
 for t in git python3 jq; do
   if have "$t"; then echo "  ✓ $t"; else echo "  ✗ $t — 없음 (macOS: brew install $t)"; miss=1; fi
 done
-if have herdr-app && have hc; then echo "  ✓ Herdr 앱(herdr-app, hc)"
-else echo "  ✗ Herdr 앱(herdr-app, hc) — 없음. 세션·탭 스킬에 필요: curl -fsSL https://releases.herdr.dev/app/install.sh | sh 후 앱을 한 번 열기"; miss=1; fi
+if have orca; then echo "  ✓ Orca 앱(orca)"
+else echo "  ✗ Orca 앱(orca) — 없음. 봇·worker 스킬에 필요: Orca 앱을 깔고 한 번 열기(orca status로 확인)"; miss=1; fi
+# (Herdr 시절) Herdr는 선택·옛 방식: 없어도 경고하지 않는다
+have herdr-app && have hc && echo "  · Herdr 앱(herdr-app, hc) — 있음(선택·옛 방식, hub:layout에서만 씀)"
 have gh && echo "  ✓ gh (GitHub CLI)" || echo "  · gh — 없어도 됨(배포 현황·PR 스킬에서 씀)"
 [ "$miss" = 1 ] && echo "  → 없는 것을 깔아도 되고, 플러그인 설치는 지금 계속합니다."
 
