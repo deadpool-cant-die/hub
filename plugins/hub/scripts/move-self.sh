@@ -1,4 +1,5 @@
 #!/bin/zsh
+# (Herdr 시절) Herdr 앱 전용 — Orca엔 해당 없음(hub:session). Herdr를 끌 때 지운다.
 # usage: move-self.sh <이름> <cwd> <space id> <tab id> <model> <effort> <session id> [바꿀 상대 칸 이름]
 # 세션이 자기 자신을 다른 탭으로 옮길 때 쓴다. 반드시 독립 터미널로 띄운다:
 #   env -u HC_TERMINAL_ID -u HC_SCOPE hc run --bg --no-parent --name move-<이름> -- <이 스크립트> ...

@@ -1,3 +1,4 @@
+# (Herdr 시절) Herdr 앱 전용 — Orca엔 해당 없음(hub:session). Herdr를 끌 때 지운다.
 # tab-layout.sh·tower-layout.sh가 같이 쓰는 칸 다시 짜기 도구 (zsh에서 source).
 # 방법: 진짜 세션 칸은 park하지 않는다(park하면 Herdr가 에이전트로 못 알아봄).
 #   1) 원하는 모양의 빈 칸(placeholder, `sleep`)을 pane.split(pane 지정)으로 만든다

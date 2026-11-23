@@ -5,12 +5,14 @@ description: 지금 사용자가 할 일과 Hub 전체 진행 상황을 한 번�
 
 # 할 일·진행 상황 (hub:what-should-i-do)
 
+> `HUB_SCRIPTS` = 이 플러그인의 `scripts/`(이 스킬 폴더 기준 `../../scripts`).
+
 사용자가 부르면 아래를 읽고 **짧게** 답한다. 새 일을 시작하거나 세션에 지시하지 않는다(읽기만).
 
 ## 읽을 것
 1. `~/Hub/TODO.md` — 할 일 목록(정본)
 2. `~/.agents/memory/MEMORY.md`에서 최근 `project-paused-work-*`, `reference-hub-sessions-*` 같은 진행 상태 메모리
-3. `hc ls` — 지금 돌고 있는(`working`) 세션 이름. **TODO.md의 `[~]` 진행 항목은 담당 세션이 실제로 working인지 대조**해서, 아니면 "멈춤/끝남(표시만 남음)"으로 바로잡아 보여 주고 hub-admin에게 TODO 수정을 알린다.
+3. `orca agent list --state working` — 지금 돌고 있는 에이전트(봇별로는 `python3 -I ${HUB_SCRIPTS}/status.py`). **TODO.md의 `[~]` 진행 항목은 담당이 실제로 working인지 대조**해서, 아니면 "멈춤/끝남(표시만 남음)"으로 바로잡아 보여 주고 bot:admin에게 TODO 수정을 알린다.
 
 ## 답하는 형식(이 순서, 한국어, 쉬운 말)
 1. **지금 사용자가 할 것** — 사용자가 정하거나 직접 해야 하는 것만. 없으면 "없음". 번호를 붙여 한 줄씩(사용자가 "1 ㅇㅇ"처럼 답할 수 있게).

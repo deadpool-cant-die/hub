@@ -1,36 +1,38 @@
 #!/usr/bin/env python3
-"""Herdr 스페이스·탭별로 떠 있는 세션과 지금 하는 일을 한 줄씩. 읽기만 한다.
-usage: status.py [스페이스 이름]"""
-import json, os, subprocess, sys
+"""Orca에 떠 있는 에이전트를 봇별로 한 줄씩: 이름, 상태, 핀, 마지막으로 한 말. 읽기만 한다.
+usage: status.py [봇 이름]
+쓰는 명령: orca bot list --json, orca worktree ps --json, orca agent list --json"""
+import json, subprocess, sys
 
-ENV = {k: v for k, v in os.environ.items() if k not in ('HC_TERMINAL_ID', 'HC_SCOPE')}
-MARK = {'working': '▶ 일하는 중', 'blocked': '■ 막힘', 'done': '✓ 끝남(안 봄)', 'idle': '· 대기'}
+MARK = {'working': '▶ 일하는 중', 'blocked': '■ 막힘', 'waiting': '■ 답 기다림', 'done': '✓ 끝남'}
 
 
-def get(a):
-    r = subprocess.run(['hc', 'get', a, '--json'], capture_output=True, text=True, env=ENV)
-    return json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else {}
+def orca(*a):
+    r = subprocess.run(['orca', *a, '--json'], capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit('orca %s 실패: %s' % (' '.join(a), (r.stderr or r.stdout).strip()[:200]))
+    return json.loads(r.stdout)['result']
 
 
 want = sys.argv[1] if len(sys.argv) > 1 else ''
-spaces = json.loads(subprocess.run(['herdr-app', 'ls'], capture_output=True, text=True).stdout)['spaces']
-for s in spaces:
-    if want and s.get('name') != want:
+bots = {b['name']: b for b in orca('bot', 'list')['bots']}
+wts = {w['worktreeId']: w for w in orca('worktree', 'ps', '--limit', '500')['worktrees']}
+groups = {}
+for a in orca('agent', 'list')['agents']:
+    w = wts.get(a['worktreeId']) or {}
+    groups.setdefault(w.get('bot') or '', []).append((w, a))
+
+for name in sorted(set(bots) | set(groups), key=lambda n: (n == '', n)):
+    if want and name != want:
         continue
-    print('[%s]' % s.get('name'))
-    for t in s['tabs']:
-        print('  ' + (t.get('name') or ''))
-        for x in t.get('terminals', []):
-            g = get(x['terminal'])
-            st = g.get('status') or {}
-            argv = ' '.join(g.get('argv') or [])
-            if x.get('name'):
-                name = x['name']
-            elif 'hc attach ' in argv:
-                target = argv.rsplit('hc attach ', 1)[1].split()[0]
-                name, g = target + ' (attach)', get(target)  # 래퍼 말고 붙은 세션의 상태·핀
-                st = g.get('status') or {}
-            else:
-                name = (g.get('foreground') or {}).get('name', '셸')
-            pin = ' 📌' if (g.get('labels') or {}).get('herdr.pinned') == '1' else ''
-            print('    %-5s %-28s %s%s  %s' % (x['terminal'], name, MARK.get(st.get('state'), '  셸/알 수 없음'), pin, (st.get('msg') or '')[:70]))
+    b = bots.get(name)
+    print('[bot:%s]%s' % (name, ' (멈춤)' if b and b.get('paused') else '') if name else '[봇 없음]')
+    rows = groups.get(name, [])
+    if not rows:
+        print('    (열린 에이전트 없음)')
+    for w, a in sorted(rows, key=lambda r: -(r[1].get('updatedAt') or 0)):
+        where = 'home' if w.get('botHome') else (w.get('displayName') or a.get('workspace') or '')
+        pin = ' 📌' if w.get('isPinned') else ''
+        said = ' '.join((a.get('lastAssistantMessage') or '').split())[:70]
+        print('    %-20s %-7s %-28s %s%s  %s' % (where[:20], a.get('agent') or a.get('kind'), (a.get('title') or '')[:28],
+                                              MARK.get(a.get('state'), '· ' + str(a.get('state'))), pin, said))

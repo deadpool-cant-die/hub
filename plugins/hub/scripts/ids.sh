@@ -1,4 +1,5 @@
 #!/bin/zsh
+# (Herdr 시절) Herdr 앱 전용 — Orca엔 해당 없음(hub:session). Herdr를 끌 때 지운다.
 # usage: ids.sh [스페이스 이름] [탭 이름 일부]
 # Herdr 앱의 스페이스·탭·칸 id를 출력한다. 인수 없으면 전부.
 herdr-app ls | SP="${1:-}" TB="${2:-}" python3 -c '

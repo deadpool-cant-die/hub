@@ -1,12 +1,12 @@
 ---
 name: delegate
-description: Hub 관제가(hub:delegate) worker 세션에게 일을 맡길 때 쓰는 지시서 틀과 위임 전후 점검. 레포 규칙 원문 목록 먼저 받기, 레포 컨벤션 언어(대개 영어 Conventional Commits)로 PR·커밋, 공개 레포에 개인 설정 쓰지 않기, 설정 파일 체크섬 비교, 공유 서버 업로드는 사용자 재확인 후, 결과물 경로·보고 형식을 다룬다. Trigger words - 시켜, 맡겨, 위임, worker 띄워, 리서치 시켜, 지시서, 에이전트 요청, 조사 시켜, PR 시켜, 작업 지시.
+description: Hub 관제가(hub:delegate) 봇·worker에게 일을 맡길 때(orca orchestration send --to bot:<이름> / worker-start) 쓰는 지시서 틀과 위임 전후 점검. 레포 규칙 원문 목록 먼저 받기, 레포 컨벤션 언어(대개 영어 Conventional Commits)로 PR·커밋, 공개 레포에 개인 설정 쓰지 않기, 설정 파일 체크섬 비교, 공유 서버 업로드는 사용자 재확인 후, 결과물 경로·보고 형식을 다룬다. Trigger words - 시켜, 맡겨, 위임, worker 띄워, 리서치 시켜, 지시서, 에이전트 요청, 조사 시켜, PR 시켜, 작업 지시.
 ---
 
 # worker에게 일 맡기기
 
 관련(복사하지 않음):
-- worker 켜는 명령 → `hub:session`, 칸 배치 → `hub:layout`
+- worker 켜는 명령 → `hub:session`
 - 보고 흐름·승인 전달 → `hub:control`
 - 회사 전용 내용(레포 컨벤션 예·공유 서버·파일 위치) → 같은 폴더 `reference.local.md`(있을 때만, 회사·개인 전용이라 공개 레포엔 없음)
 - 웹 로그인·키 발급은 Aside(aside-browser 스킬)로 직접 → 전역 `~/.claude/CLAUDE.md` "웹 계정 작업은 직접 처리"
@@ -14,15 +14,16 @@ description: Hub 관제가(hub:delegate) worker 세션에게 일을 맡길 때 �
 
 ## 1. 지시서를 어디에
 
-- 짧으면 `hub:session`의 `launch.sh` 첫 지시에 바로 넣는다.
-- 길거나 여러 번 볼 것이면 `$HUB_PRIVATE/<내용> 지시서.md`로 쓰고, 첫 지시는 "이 파일을 읽고 그대로 진행해라 + 핵심 금지 2~3줄"로.
+- 다른 봇에게 일을 통째로 넘길 때: `orca orchestration send --to bot:<이름> --type handoff --subject "<제목>" --body-file <지시서>`(묻기만이면 `--type question`).
+- 내가 worker를 켜서 맡길 때: `orca orchestration worker-start --spec-file <지시서> --worktree new-child --name <일>-<역할> --agent claude|codex`(`hub:session`). 짧으면 `--spec "…"`.
+- 길거나 여러 번 볼 것이면 `$HUB_PRIVATE/<내용> 지시서.md`로 쓰고 그 파일을 넘긴다. 핵심 금지 2~3줄은 맨 위에.
 
 ## 2. 지시서 틀
 
 ```markdown
-# <일 이름> 지시서 (<세션 이름>, YYYY-MM-DD)
+# <일 이름> 지시서 (<worker 이름>, YYYY-MM-DD)
 
-너는 <세션 이름>다. 일하는 곳: <실제 레포 폴더 ~/Dev/<이름> 또는 ~/Hub>.
+너는 <worker 이름>다. 일하는 곳: <실제 레포 폴더 ~/Dev/<이름> 또는 ~/Hub>.
 
 ## 목표
 <한두 줄. 무엇을 끝내면 되나>
@@ -52,7 +53,7 @@ description: Hub 관제가(hub:delegate) worker 세션에게 일을 맡길 때 �
 - <경로/파일 이름>, <형식: 쉬운 한국어, 결론→근거 등>
 
 ## 보고
-끝나거나 막히면 `hc send <보고처> "[<세션 이름> → <보고처>] …"`로: 한 일 / 결과 경로·PR·커밋 / 남은 것 / 막힌 것.
+끝나면 `orca orchestration send --type worker_done …`(worker-start로 켰으면 받는 쪽은 자동으로 나), 막히면 `--type escalation`, 물을 게 있으면 `orca orchestration ask`. 본문: 한 일 / 결과 경로·PR·커밋 / 남은 것 / 막힌 것. 봇에게 handoff로 넘긴 일이면 `orca orchestration send --to bot:<보고처> --type status …`.
 ```
 
 ## 3. 위임 전후 점검

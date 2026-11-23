@@ -1,4 +1,5 @@
 #!/bin/zsh
+# (Herdr 시절) Herdr 앱 전용 — Orca엔 해당 없음(hub:session). Herdr를 끌 때 지운다.
 # usage: launch.sh <이름> <cwd> <space id> <tab id> <model> <effort> [--resume <session id>] [첫 지시]
 # Claude Code 세션을 부모 없이(--no-parent), 잃어도 셸로 남게(--keep) 띄우고 Herdr 탭에 붙인다.
 # 모델은 플래그로만 정한다(/model은 ~/.claude/settings.json 기본값을 바꾼다).

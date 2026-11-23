@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Herdr 탭의 칸 트리를 읽는 도우미. relaunch.sh·tower-layout-v2.sh가 쓴다.
+"""(Herdr 시절) Herdr 앱 전용 — Orca엔 해당 없음(hub:session). Herdr를 끌 때 지운다.
+Herdr 탭의 칸 트리를 읽는 도우미. relaunch.sh·tower-layout-v2.sh가 쓴다.
 
 usage:
   herdr_tree.py find <이름>            -> "<space> <tab> <pane> <wrapper|direct>" (그 세션을 보여 주는 칸)
