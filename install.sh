@@ -39,5 +39,12 @@ if [ "$want" != claude ]; then
 fi
 [ "$ok" = 1 ] || { echo "설치할 곳(Claude Code·Codex)이 없습니다."; exit 1; }
 echo
+echo "== 직접 채울 설정 (개인 값은 레포에 없고, 이 파일들에만 둡니다. 없어도 기본값으로 동작)"
+cfg() { # cfg <파일> <설명>
+  if [ -s "$1" ]; then echo "  ✓ $1"; else echo "  · $1 — 비어 있음: $2"; fi
+}
+cfg "$HOME/.config/hub/config" "HUB_PRIVATE=<비공개 메모 폴더> 한 줄(기본 ~/.hub)"
+cfg "${ASIDE_OPS_ACCOUNTS:-$HOME/.config/aside-ops/accounts.md}" "aside-ops 계정 지도. 스킬 폴더 aside-ops/accounts.example.md를 복사해 채우세요"
+echo
 echo "설치 끝! 이제 /hub:hub-onboarding 을 실행하세요"
 echo "(이미 켜 둔 세션은 /reload-plugins 를 한 번 입력하면 보입니다. 지우기: sh uninstall.sh)"

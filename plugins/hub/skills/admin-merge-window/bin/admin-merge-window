@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# admin-merge-window: 기본 브랜치 보호의 enforce_admins만 잠깐 끄고 PR을 admin 머지한 뒤 바로 켠다.
+# 사용법은 ../SKILL.md. 결과는 마지막 줄 JSON(stdout). 중간 실패·중단에도 trap이 다시 켜고 보호 설정을 저장본과 비교한다.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+TO_PUT="$HERE/to-put.jq"
+GH="${AMW_GH:-gh}"
+RUN_ROOT="${AMW_STATE:-$HOME/.agents/run/admin-merge-window}"
+
+usage() {
+  cat >&2 <<'EOF'
+admin-merge-window --repo OWNER/NAME --pr N --approval "<사용자 원문>" --check "<로컬 검사 명령>" [--method merge|squash|rebase] [--dry-run]
+admin-merge-window restore --repo OWNER/NAME --from <저장본.json>     # 저장본으로 보호 설정 되돌리기(기본 브랜치만)
+admin-merge-window selftest
+EOF
+}
+
+die() { # die <rc> <메시지>: 시작 전 거부(아무것도 안 건드림)
+  jq -cn --arg e "$2" '{ok:false, error:$e}'
+  exit "$1"
+}
+
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+norm() { jq -S -f "$TO_PUT" "$1"; }
+
+put_from_saved() { # put_from_saved <repo> <branch> <saved.json>
+  local repo="$1" br="$2" saved="$3" sig
+  jq -f "$TO_PUT" "$saved" | jq 'del(.required_signatures)' |
+    "$GH" api -X PUT "repos/$repo/branches/$br/protection" --input - >/dev/null || return 1
+  sig=$(jq -r '.required_signatures.enabled // false' "$saved")
+  if [ "$sig" = true ]; then "$GH" api -X POST "repos/$repo/branches/$br/protection/required_signatures" >/dev/null
+  else "$GH" api -X DELETE "repos/$repo/branches/$br/protection/required_signatures" >/dev/null 2>&1 || true; fi
+}
+
+if [ "${1:-}" = selftest ]; then exec bash "$HERE/selftest.sh"; fi
+
+if [ "${1:-}" = restore ]; then
+  shift; REPO=""; FROM=""
+  while [ $# -gt 0 ]; do case "$1" in
+    --repo) REPO="$2"; shift 2;; --from) FROM="$2"; shift 2;; *) usage; die 2 "모르는 인자: $1";; esac; done
+  [ -n "$REPO" ] && [ -f "$FROM" ] || die 2 "--repo와 --from <파일>이 필요함"
+  BR=$("$GH" api "repos/$REPO" -q .default_branch) || die 1 "레포를 못 읽음: $REPO"
+  put_from_saved "$REPO" "$BR" "$FROM" || die 1 "PUT 실패"
+  cur=$(mktemp); "$GH" api "repos/$REPO/branches/$BR/protection" >"$cur"
+  if diff <(norm "$FROM") <(norm "$cur") >/dev/null; then jq -cn --arg r "$REPO" --arg b "$BR" '{ok:true, repo:$r, branch:$b, compare:"same"}'
+  else jq -cn --arg r "$REPO" --arg d "$(diff <(norm "$FROM") <(norm "$cur"))" '{ok:false, repo:$r, compare:"differs", diff:$d}'; exit 1; fi
+  exit 0
+fi
+
+REPO=""; PR=""; APPROVAL=""; CHECK=""; METHOD="merge"; DRY=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo) REPO="${2:-}"; shift 2;;
+    --pr) PR="${2:-}"; shift 2;;
+    --approval) APPROVAL="${2:-}"; shift 2;;
+    --check) CHECK="${2:-}"; shift 2;;
+    --method) METHOD="${2:-}"; shift 2;;
+    --dry-run) DRY=1; shift;;
+    -h|--help) usage; exit 0;;
+    *) usage; die 2 "모르는 인자: $1";;
+  esac
+done
+
+[ -n "$(printf %s "$APPROVAL" | tr -d '[:space:]')" ] || die 2 "--approval(사용자 승인 원문)이 없음: 승인 없이 보호를 끄지 않는다"
+[[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die 2 "--repo OWNER/NAME 필요"
+[[ "$PR" =~ ^[0-9]+$ ]] || die 2 "--pr 번호 필요"
+[ -n "$CHECK" ] || die 2 "--check(머지 전 로컬 검사 명령) 필요"
+case "$METHOD" in merge|squash|rebase) ;; *) die 2 "--method는 merge|squash|rebase";; esac
+
+BR=$("$GH" api "repos/$REPO" -q .default_branch 2>/dev/null) || die 1 "레포를 못 읽음: $REPO"
+PRJ=$("$GH" pr view "$PR" -R "$REPO" --json state,baseRefName,headRefName,title 2>/dev/null) || die 1 "PR을 못 읽음: $REPO#$PR"
+[ "$(jq -r .state <<<"$PRJ")" = OPEN ] || die 2 "PR이 열려 있지 않음: $(jq -r .state <<<"$PRJ")"
+BASE=$(jq -r .baseRefName <<<"$PRJ")
+[ "$BASE" = "$BR" ] || die 2 "PR base($BASE)가 기본 브랜치($BR)가 아님: 기본 브랜치 외 보호는 건드리지 않는다"
+
+DIR="$RUN_ROOT/$(date +%Y%m%d-%H%M%S)-${REPO//\//_}-$PR"; mkdir -p "$DIR"
+SAVED="$DIR/protection-before.json"; AFTER="$DIR/protection-after.json"
+"$GH" api "repos/$REPO/branches/$BR/protection" >"$SAVED" 2>"$DIR/err" || die 1 "보호 설정을 못 읽음(보호가 없거나 admin 권한 없음): $(head -c 200 "$DIR/err")"
+WAS_ON=$(jq -r '.enforce_admins.enabled' "$SAVED")
+echo "보호 설정 저장: $SAVED (enforce_admins=$WAS_ON)" >&2
+
+if ! (bash -c "$CHECK") >&2; then die 1 "로컬 검사 실패: $CHECK"; fi
+echo "로컬 검사 통과" >&2
+
+if [ "$DRY" = 1 ]; then
+  jq -cn --arg r "$REPO" --arg p "$PR" --arg b "$BR" --arg s "$SAVED" --arg w "$WAS_ON" --arg m "$METHOD" \
+    '{ok:true, dry_run:true, repo:$r, pr:($p|tonumber), branch:$b, saved:$s, enforce_admins_before:($w=="true"), would:["enforce_admins 끄기","gh pr merge --admin --"+$m,"enforce_admins 켜기","저장본과 비교"]}'
+  exit 0
+fi
+
+OFF=0; OFF_AT=""; ON_AT=""; MERGE_COMMIT=""; MERGED=false; COMPARE="not_run"; DIFF=""; ERR=""
+EA="repos/$REPO/branches/$BR/protection/enforce_admins"
+
+turn_on() {
+  [ "$OFF" = 1 ] || return 0
+  for _ in 1 2 3 4 5; do
+    if "$GH" api -X POST "$EA" >/dev/null 2>&1; then OFF=0; ON_AT=$(now); echo "enforce_admins 다시 켬: $ON_AT" >&2; return 0; fi
+    sleep 2
+  done
+  echo "!!!!!!!! enforce_admins 다시 켜기 실패: $REPO $BR — 지금 손으로 켤 것: gh api -X POST $EA !!!!!!!!" >&2
+  return 1
+}
+
+finish() {
+  local rc=$?
+  trap - EXIT INT TERM HUP
+  turn_on || { rc=1; ERR="${ERR:+$ERR; }enforce_admins 켜기 실패"; }
+  if "$GH" api "repos/$REPO/branches/$BR/protection" >"$AFTER" 2>/dev/null; then
+    if DIFF=$(diff <(norm "$SAVED") <(norm "$AFTER")); then COMPARE=same
+    else
+      echo "!!!!!!!! 보호 설정이 저장본과 다름 — 저장본으로 되돌림 !!!!!!!!" >&2; echo "$DIFF" >&2
+      if put_from_saved "$REPO" "$BR" "$SAVED" && "$GH" api "repos/$REPO/branches/$BR/protection" >"$AFTER" && diff <(norm "$SAVED") <(norm "$AFTER") >/dev/null
+      then COMPARE=restored; else COMPARE=restore_failed; rc=1; echo "!!!!!!!! 되돌리기 실패, 저장본: $SAVED !!!!!!!!" >&2; fi
+    fi
+  else COMPARE=read_failed; rc=1; fi
+  [ "$MERGED" = true ] || rc=$(( rc == 0 ? 1 : rc ))
+  jq -cn --argjson ok "$([ "$rc" = 0 ] && echo true || echo false)" --arg r "$REPO" --arg p "$PR" --arg b "$BR" \
+    --arg off "$OFF_AT" --arg on "$ON_AT" --arg mc "$MERGE_COMMIT" --argjson merged "$MERGED" --arg cmp "$COMPARE" \
+    --arg diff "$DIFF" --arg dir "$DIR" --arg err "$ERR" --arg ap "$APPROVAL" \
+    '{ok:$ok, repo:$r, pr:($p|tonumber), branch:$b, approval:$ap, off_at:$off, on_at:$on, merged:$merged, merge_commit:$mc, compare:$cmp, diff:$diff, dir:$dir, error:$err}' |
+    tee "$DIR/result.json"
+  exit "$rc"
+}
+trap finish EXIT
+trap 'ERR="중단(INT)"; exit 130' INT
+trap 'ERR="중단(TERM)"; exit 143' TERM
+trap 'ERR="중단(HUP)"; exit 129' HUP
+
+if [ "$WAS_ON" = true ]; then
+  OFF=1  # 요청이 반쯤 들어가도 trap이 켜도록 먼저 표시
+  "$GH" api -X DELETE "$EA" >/dev/null || { ERR="enforce_admins 끄기 실패"; exit 1; }
+  OFF_AT=$(now); echo "enforce_admins 끔: $OFF_AT" >&2
+else
+  echo "enforce_admins가 원래 꺼져 있음: 끄고 켜지 않고 머지만 함" >&2
+fi
+
+if ! "$GH" pr merge "$PR" -R "$REPO" --admin "--$METHOD" >&2; then ERR="gh pr merge 실패"; exit 1; fi
+MERGED=true
+MERGE_COMMIT=$("$GH" pr view "$PR" -R "$REPO" --json mergeCommit -q '.mergeCommit.oid // ""' 2>/dev/null)
+turn_on || exit 1
+exit 0

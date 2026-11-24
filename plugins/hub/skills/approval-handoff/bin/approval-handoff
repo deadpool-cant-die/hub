@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+"""approval-handoff: secretary가 [사용자 승인]을 정해진 양식으로 다른 봇에 넘긴다. 사용법은 ../SKILL.md.
+
+결과는 stdout 한 줄 JSON. rc 0 보냄(또는 dry-run), 2 입력 거부, 3 위험 동작 경고로 안 보냄, 1 전송 실패.
+"""
+import argparse, datetime as dt, json, os, re, subprocess, sys
+
+STATE = os.path.expanduser(os.environ.get("APPROVAL_HANDOFF_STATE", "~/.agents/run/approval-handoff"))
+ORCA = os.environ.get("ORCA_BIN", "orca")
+AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{1,2}(시대|:\d{2})$")
+BOT_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+SHELL_RE = re.compile(r"`|\$\(")
+# 위험 동작: 할 일에 있는데 사용자 원문(또는 승인한 제안 원문)에 같은 종류 말이 없으면 경고
+RISKY = {
+    "소리": r"소리|음소거|볼륨|스피커|재생|사운드|unmute|volume|speaker|audio|\bsay\b|afplay",
+    "배포": r"배포|릴리[스즈]|태그|운영|deploy|release|\btag\b|prod",
+    "보내기": r"보내|전송|발송|메시지|메일|댓글|공지|올려|게시|send|post|comment|gchat|slack|email",
+    "푸시": r"푸시|push",
+    "머지": r"머지|병합|merge",
+    "삭제": r"삭제|지우|지워|폐기|제거|delete|remove|\brm\b|drop|revoke",
+    "결제": r"결제|카드|유료|구독|과금|청구|pay|billing|subscri",
+    "권한": r"권한|보호 ?규칙|브랜치 보호|enforce_admins|admin|permission",
+}
+
+
+def out(obj, code):
+    print(json.dumps(obj, ensure_ascii=False))
+    sys.exit(code)
+
+
+def risky_kinds(text):
+    return {k for k, pat in RISKY.items() if re.search(pat, text, re.I)}
+
+
+def validate(a):
+    """입력 거부 사유 목록(빈 목록이면 통과)."""
+    errs = []
+    for name in ("quote", "at", "target", "task", "to"):
+        if not (getattr(a, name) or "").strip():
+            errs.append(f"--{name} 비어 있음")
+    if a.at and not AT_RE.match(a.at.strip()):
+        errs.append("--at 형식은 'YYYY-MM-DD HH시대' 또는 'YYYY-MM-DD HH:MM'")
+    if a.to and not BOT_RE.match(a.to.removeprefix("bot:")):
+        errs.append("--to는 봇 이름(bot:<이름> 또는 <이름>)")
+    for name in ("quote", "proposal", "target", "task", "subject"):
+        if SHELL_RE.search(getattr(a, name) or ""):
+            errs.append(f"--{name}에 백틱이나 $( )가 있음: 받는 쪽 셸에서 실행될 수 있어 빼고 다시")
+    return errs
+
+
+def warnings(a):
+    allowed = risky_kinds(a.quote + "\n" + (a.proposal or ""))
+    return sorted(risky_kinds(a.task) - allowed)
+
+
+def body(a):
+    lines = ["[사용자 승인]", f"출처: Orca 채팅({a.at.strip()})", f'사용자 원문: "{a.quote.strip()}"']
+    if a.proposal:
+        lines.append(f'사용자가 승인한 제안 원문: "{a.proposal.strip()}"')
+    lines += [f"대상: {a.target.strip()}", f"할 일: {a.task.strip()}",
+              "범위: 위 대상·할 일만. 범위 밖이면 secretary에 묻고, 실행 결과(커밋 해시·실행 링크)를 보낸 쪽에 보고."]
+    return "\n".join(lines) + "\n"
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(prog="approval-handoff")
+    p.add_argument("--quote", required=False, default="", help="사용자 원문 그대로")
+    p.add_argument("--at", default="", help="출처 시각: 2026-11-24 14시대")
+    p.add_argument("--target", default="", help="구체적인 대상: PR #123, 태그 web-v0.2.4 등")
+    p.add_argument("--task", default="", help="받는 봇이 할 일")
+    p.add_argument("--to", default="", help="받을 봇 이름")
+    p.add_argument("--proposal", default="", help="원문이 '그렇게 해'처럼 제안을 승인한 말이면 그 제안 원문")
+    p.add_argument("--subject", default="")
+    p.add_argument("--item", help="그 봇의 항목 채팅 번호(있으면)")
+    p.add_argument("--chat", help="그 봇의 채팅 id 또는 new(새 채팅)")
+    p.add_argument("--type", default="handoff", choices=["handoff", "question", "status"], help="기본 handoff(받는 봇이 일을 맡음)")
+    p.add_argument("--force", action="store_true", help="위험 동작 경고를 알고도 보냄")
+    p.add_argument("--dry-run", action="store_true")
+    if argv is None and len(sys.argv) > 1 and sys.argv[1] == "selftest":
+        os.execv(sys.executable, [sys.executable, os.path.join(os.path.dirname(os.path.realpath(__file__)), "selftest.py")])
+    a = p.parse_args(argv)
+
+    errs = validate(a)
+    if errs:
+        out({"ok": False, "sent": False, "error": "; ".join(errs)}, 2)
+    warn = warnings(a)
+    text = body(a)
+    bot = a.to.removeprefix("bot:")
+    subject = a.subject.strip() or f"[사용자 승인] {a.target.strip()}"[:80]
+    os.makedirs(STATE, exist_ok=True)
+    path = os.path.join(STATE, f"{dt.datetime.now():%Y%m%d-%H%M%S-%f}-{bot}.md")
+    with open(path, "w") as f:
+        f.write(text)
+    res = {"ok": True, "sent": False, "to": f"bot:{bot}", "subject": subject, "body_file": path, "body": text, "warnings": warn}
+    if "소리" in warn:  # README "소리 절대 금지": --force로도 안 됨
+        res.update(ok=False, error="할 일에 소리 동작이 있는데 사용자 원문에 소리 허락이 없음. --force로도 보내지 않는다: 사용자에게 그때 그 자리 허락을 받아 원문으로")
+        out(res, 3)
+    if warn and not a.force:
+        res.update(ok=False, error=f"할 일에 위험 동작({', '.join(warn)})이 있는데 사용자 원문에는 그 말이 없음. "
+                   "사용자에게 그 동작을 직접 확인받거나, 승인한 제안 원문을 --proposal로 붙이거나, 확실하면 --force")
+        out(res, 3)
+    if a.dry_run:
+        res["dry_run"] = True
+        out(res, 0)
+    cmd = [ORCA, "orchestration", "send", "--to", f"bot:{bot}", "--type", a.type, "--subject", subject, "--body-file", path, "--json"]
+    if a.item:
+        cmd += ["--item", a.item]
+    if a.chat:
+        cmd += ["--chat", a.chat]
+    pr = subprocess.run(cmd, capture_output=True, text=True)
+    res["orca_rc"] = pr.returncode
+    try:
+        res["orca"] = json.loads(pr.stdout)
+    except ValueError:
+        res["orca"] = (pr.stdout + pr.stderr).strip()[-500:]
+    if pr.returncode != 0:
+        res.update(ok=False, error="orca send 실패")
+        out(res, 1)
+    res["sent"] = True
+    out(res, 0)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""wait-then-act: GitHub 조건을 Orca 예약(cron)으로 gh 직접 확인하고, 맞으면 할 일 → 예약 스스로 삭제. 사용법은 ../SKILL.md.
+
+check: 조건 확인(rc 0 맞음, 1 아님, 2 입력 오류). gate: 조건 맞음 또는 기한 지남이면 rc 0(예약 precheck용).
+create: 예약을 만들고(꺼진 채) id를 받아 프롬프트에 넣은 뒤 켠다. 결과는 stdout 한 줄 JSON.
+"""
+import argparse, datetime as dt, json, os, re, shlex, subprocess, sys
+
+SELF = os.path.realpath(__file__)
+GH = os.environ.get("WTA_GH", "gh")
+ORCA = os.environ.get("ORCA_BIN", "orca")
+REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+CONDS = {  # 조건 → (필요 인자, 사람이 읽는 설명)
+    "pr-checks": ("pr", "{repo}#{pr} 검사(checks) 전부 통과"),
+    "pr-merged": ("pr", "{repo}#{pr} 머지됨"),
+    "repo-admin": (None, "{repo}에 내 권한 admin"),
+    "tag": ("tag", "{repo}에 태그 {tag} 생김"),
+}
+
+
+def out(obj, code):
+    print(json.dumps(obj, ensure_ascii=False))
+    sys.exit(code)
+
+
+def gh_cmd(a):
+    """조건 하나 = gh 명령 한 줄. (명령, 성공 판정 함수)"""
+    if a.cond == "pr-checks":  # 전부 통과면 rc 0, 대기 8, 실패·검사 없음 1
+        return [GH, "pr", "checks", str(a.pr), "-R", a.repo], lambda rc, o: rc == 0
+    if a.cond == "pr-merged":
+        return [GH, "pr", "view", str(a.pr), "-R", a.repo, "--json", "state", "-q", ".state"], lambda rc, o: rc == 0 and o.strip() == "MERGED"
+    if a.cond == "repo-admin":
+        return [GH, "api", f"repos/{a.repo}", "-q", ".permissions.admin"], lambda rc, o: rc == 0 and o.strip() == "true"
+    if a.cond == "tag":  # git/ref(단수)는 정확히 그 이름만
+        return [GH, "api", f"repos/{a.repo}/git/ref/tags/{a.tag}", "-q", ".ref"], lambda rc, o: rc == 0 and o.strip() == f"refs/tags/{a.tag}"
+    raise AssertionError(a.cond)
+
+
+def parse_by(s):
+    t = dt.datetime.fromisoformat(s.strip())
+    return t if t.tzinfo else t.astimezone()  # 시간대 없으면 이 맥 시간
+
+
+def validate(a):
+    errs = []
+    if a.cond not in CONDS:
+        errs.append(f"--cond는 {', '.join(CONDS)} 중 하나")
+    if not REPO_RE.match(a.repo or ""):
+        errs.append("--repo OWNER/NAME 필요")
+    need = CONDS.get(a.cond, (None,))[0]
+    if need == "pr" and not (a.pr and str(a.pr).isdigit()):
+        errs.append("--pr 번호 필요")
+    if need == "tag" and not re.match(r"^[A-Za-z0-9_./-]+$", a.tag or ""):
+        errs.append("--tag 이름 필요")
+    if getattr(a, "by", None) is not None:
+        try:
+            parse_by(a.by)
+        except ValueError:
+            errs.append("--by는 ISO 시각(예: 2026-11-24T18:00+09:00)")
+    return errs
+
+
+def check(a):
+    cmd, ok = gh_cmd(a)
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    return ok(p.returncode, p.stdout), {"cmd": " ".join(shlex.quote(c) for c in cmd), "rc": p.returncode, "stdout": p.stdout.strip()[-300:], "stderr": p.stderr.strip()[-300:]}
+
+
+def cond_args(a):
+    args = ["--cond", a.cond, "--repo", a.repo]
+    if a.pr:
+        args += ["--pr", str(a.pr)]
+    if a.tag:
+        args += ["--tag", a.tag]
+    return args
+
+
+def shell(args):
+    return " ".join(shlex.quote(x) for x in args)
+
+
+def prompt(a, aid):
+    desc = CONDS[a.cond][1].format(repo=a.repo, pr=a.pr, tag=a.tag)
+    chk = shell([SELF, "check", *cond_args(a)])
+    due = shell([SELF, "due", "--by", a.by])
+    rm = shell([ORCA, "automations", "remove", aid])
+    return (
+        f"[wait-then-act 예약 {aid}] 조건: {desc}. 기한: {a.by}. 이 예약은 한 번 일하고 스스로 지운다.\n"
+        f"1) 조건 다시 확인: {chk}  (rc 0이면 맞음)\n"
+        f"2) 맞으면 할 일만 한다: {a.do}\n   끝나면 결과(근거: 커밋·링크·출력)를 짧게 보고한다.\n"
+        f"3) 안 맞는데 기한이 지났으면({due} 가 rc 0) 할 일은 하지 말고 사용자에게 '기한까지 {desc} 안 됨'이라고 알린다.\n"
+        f"4) 2나 3을 했으면 마지막에 반드시 이 예약을 지운다: {rm}  그리고 지웠는지 orca automations show {aid} 로 확인(없어야 함).\n"
+        f"5) 조건도 아직이고 기한 전이면 아무것도 하지 말고 '대기'라고만 끝낸다.\n"
+        "금지: 할 일 밖의 동작. 회사 쪽 쓰기(push·PR·머지·태그·댓글·보내기)는 할 일에 적힌 [사용자 승인] 범위 안에서만."
+    )
+
+
+def orca_json(args):
+    p = subprocess.run([ORCA, *args, "--json"], capture_output=True, text=True)
+    try:
+        j = json.loads(p.stdout)
+    except ValueError:
+        j = {"raw": (p.stdout + p.stderr).strip()[-500:]}
+    return p.returncode, j
+
+
+def find_id(j):
+    """create 응답에서 예약 id 찾기(응답 모양이 바뀌어도 'id'+'name' 가진 첫 객체)."""
+    if isinstance(j, dict):
+        if "id" in j and "name" in j and "prompt" in j:
+            return j["id"]
+        for v in j.values():
+            r = find_id(v)
+            if r:
+                return r
+    elif isinstance(j, list):
+        for v in j:
+            r = find_id(v)
+            if r:
+                return r
+    return None
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "selftest":
+        os.execv(sys.executable, [sys.executable, os.path.join(os.path.dirname(SELF), "selftest.py")])
+    p = argparse.ArgumentParser(prog="wait-then-act")
+    sub = p.add_subparsers(dest="cmd", required=True)
+    for name in ("check", "gate", "create"):
+        s = sub.add_parser(name)
+        s.add_argument("--cond", required=True)
+        s.add_argument("--repo", required=True)
+        s.add_argument("--pr")
+        s.add_argument("--tag")
+        if name != "check":
+            s.add_argument("--by", required=True, help="기한 ISO 시각")
+        if name == "create":
+            s.add_argument("--bot", required=True)
+            s.add_argument("--do", required=True, help="조건이 맞으면 할 일")
+            s.add_argument("--every", default="*/10 * * * *", help="cron(기본 10분마다)")
+            s.add_argument("--name")
+            s.add_argument("--dry-run", action="store_true")
+    d = sub.add_parser("due")
+    d.add_argument("--by", required=True)
+    a = p.parse_args()
+
+    if a.cmd == "due":
+        try:
+            passed = dt.datetime.now(dt.timezone.utc) >= parse_by(a.by)
+        except ValueError:
+            out({"ok": False, "error": "--by는 ISO 시각"}, 2)
+        out({"due": passed, "by": a.by}, 0 if passed else 1)
+
+    errs = validate(a)
+    if errs:
+        out({"ok": False, "error": "; ".join(errs)}, 2)
+
+    if a.cmd == "check":
+        met, info = check(a)
+        out({"met": met, **info}, 0 if met else 1)
+    if a.cmd == "gate":
+        if dt.datetime.now(dt.timezone.utc) >= parse_by(a.by):
+            out({"pass": True, "why": "기한 지남"}, 0)
+        met, info = check(a)
+        out({"pass": met, "why": "조건 맞음" if met else "아직", **info}, 0 if met else 1)
+
+    # create
+    if not a.do.strip():
+        out({"ok": False, "error": "--do 비어 있음"}, 2)
+    if parse_by(a.by) <= dt.datetime.now(dt.timezone.utc):
+        out({"ok": False, "error": "--by가 이미 지났음"}, 2)
+    name = a.name or f"wait: {a.cond} {a.repo}{'#' + a.pr if a.pr else ''}{' ' + a.tag if a.tag else ''}"[:80]
+    precheck = shell([SELF, "gate", *cond_args(a), "--by", a.by])
+    met_now, info = check(a)
+    base = ["automations", "create", "--name", name, "--bot", a.bot, "--trigger", a.every, "--precheck", precheck, "--disabled"]
+    if a.dry_run:
+        out({"ok": True, "dry_run": True, "met_now": met_now, "check": info, "name": name, "precheck": precheck,
+             "create": shell([ORCA, *base, "--prompt", "(설정 중)"]), "prompt": prompt(a, "<id>")}, 0)
+    rc, j = orca_json([*base, "--prompt", "(설정 중: id 넣는 중)"])
+    aid = find_id(j) if rc == 0 else None
+    if not aid:
+        out({"ok": False, "error": "예약 만들기 실패", "orca": j}, 1)
+    rc, j2 = orca_json(["automations", "edit", aid, "--prompt", prompt(a, aid), "--enabled"])
+    if rc != 0:
+        orca_json(["automations", "remove", aid])  # 반쯤 만든 예약을 남기지 않음
+        out({"ok": False, "error": "프롬프트 넣기 실패, 예약 지움", "id": aid, "orca": j2}, 1)
+    out({"ok": True, "id": aid, "name": name, "bot": a.bot, "every": a.every, "by": a.by, "met_now": met_now, "precheck": precheck}, 0)
+
+
+if __name__ == "__main__":
+    main()

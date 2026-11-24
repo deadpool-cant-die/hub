@@ -40,6 +40,10 @@
 | `hub:hub-help` | hub 스킬 전체 목록·언제·예시 | `/hub:hub-help` / "hub 뭐 할 수 있어" |
 | `hub:deadpools-skills-help` | 이 컴퓨터에 깐 스킬 전부(폴더·플러그인) 무엇·언제 | `/hub:deadpools-skills-help` / "내 스킬 뭐 있어" |
 | `hub:deadpools-mods-help` | 직접 만든 Claude Code mod(패널 등) 무엇·여는 법 | `/hub:deadpools-mods-help` / "내 모드 뭐 있어" |
+| `hub:aside-ops` | Aside 브라우저 래퍼: 한 번에 한 봇(lock), 연 탭은 끝에 닫기, 세션 정리, 읽기 전용 모드, 결과 JSON. 계정 지도는 `~/.config/aside-ops/accounts.md` | `aside-ops read https://example.com` / "이 페이지 읽어 봐" |
+| `hub:approval-handoff` | `[사용자 승인]`을 정해진 양식(출처·원문·대상·할 일)으로 다른 봇에 넘기기, 원문에 없는 위험 동작은 안 보냄 | `approval-handoff ... --dry-run` / "이 승인 넘겨" |
+| `hub:wait-then-act` | GitHub 조건(검사 통과·머지·admin 권한·태그)을 Orca 예약으로 확인하다 맞으면 할 일 하고 예약 지우기 | `wait-then-act create ... --dry-run` / "머지되면 알려 줘" |
+| `hub:admin-merge-window` | 기본 브랜치 보호의 enforce_admins만 잠깐 끄고 admin 머지 뒤 바로 켬, 실패해도 다시 켜고 저장본과 비교 | `admin-merge-window ... --dry-run` / "보호 잠깐 풀고 머지" |
 
 ## 설치
 
@@ -73,6 +77,8 @@ curl -fsSL https://raw.githubusercontent.com/deadpool-cant-die/hub/main/uninstal
 - (Herdr 시절) Herdr 앱(`herdr-app`, `hc`) — 선택·옛 방식, `hub:layout`과 "(Herdr 시절)" 절에서만
 
 ## 로컬 전용 메모
+
+개인 값(계정 이메일, 사내 주소 등)은 레포에 없다. 설치 끝에 채울 파일을 알려 준다: `~/.config/hub/config`(HUB_PRIVATE), `~/.config/aside-ops/accounts.md`(aside-ops 계정 지도, `accounts.example.md`를 복사).
 
 `*.local.md` 파일은 git이 무시한다. 회사·컴퓨터 전용 내용(사내 주소, 계정 이름, 채팅 번호)은 거기에 두면 스킬이 있을 때만 읽는다.
 
