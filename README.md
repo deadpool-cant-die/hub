@@ -25,7 +25,6 @@
 | `hub:what-should-i-do` | 지금 내가 할 일과 전체 진행 상황을 짧게(TODO.md + 실제 세션 상태 대조) | `/hub:what-should-i-do` / "뭐 해야 돼?" |
 | `hub:status` | Orca에 떠 있는 에이전트를 봇별로 한눈에: 상태(일하는 중·막힘·끝남)·핀·마지막으로 한 말 | `/hub:status` / "다들 뭐 해?" |
 | `hub:dont-waste-sessions` | 끝난 worker·노는 터미널을 주기적으로 닫기(`on [분]`/`off`/`status`/`dry-run`), 봇 채팅·핀·작업 중은 제외, 로그 남김 | `/hub:dont-waste-sessions on 30` / "노는 세션 정리해" |
-| `hub:clawpod` | ClawPod 에이전트를 웹 없이 MCP로만 부리기: 일 시키기·답장 감시·안 되는 것 기록 | `/hub:clawpod` / "클로팟 에이전트한테 시켜" |
 | `hub:to-say-during-scrum` | 스크럼에서 말할 것: 어제·오늘·블로커 각 2~4줄, 티켓 번호 | `/hub:to-say-during-scrum` / "스크럼 뭐 말하지" |
 | `hub:what-did-i-do-today` | 오늘 한 일을 시간순으로: 끝남·진행 중·기다림 | `/hub:what-did-i-do-today` / "오늘 뭐 했지" |
 | `hub:praise-me` | 오늘 해낸 것을 실제 기록 근거로 짧게 칭찬 | `/hub:praise-me` / "나 잘했지" |

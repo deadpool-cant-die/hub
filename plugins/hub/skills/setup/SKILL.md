@@ -85,6 +85,5 @@ mkdir -p ~/.config/hub && echo "HUB_PRIVATE=<Hub 폴더>/private" >> ~/.config/h
 | 지금 할 일과 진행 상황 | `hub:what-should-i-do` |
 | 지금 떠 있는 봇·worker·하는 일 한눈에 | `hub:status` |
 | 놀고 있는 세션 자동으로 끄기 | `hub:dont-waste-sessions` |
-| ClawPod 에이전트를 MCP로 부리기 | `hub:clawpod` |
 
 스크립트는 모두 `${HUB_SCRIPTS}/`에 있다.
