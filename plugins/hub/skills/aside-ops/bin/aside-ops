@@ -1,0 +1,518 @@
+#!/usr/bin/env python3
+"""aside-ops: 봇·에이전트용 Aside 래퍼. 한 번에 한 봇, 연 탭은 반드시 닫고, 세션은 정리한다.
+
+사용법은 ../SKILL.md. 결과는 항상 stdout 한 줄 JSON.
+"""
+import argparse, base64, datetime as dt, difflib, fcntl, json, os, re, signal, subprocess, sys, tempfile, time
+
+STATE = os.path.expanduser(os.environ.get("ASIDE_OPS_STATE", "~/.agents/run/aside-ops"))
+LOCK, OWNER, CURRENT, LOG = (os.path.join(STATE, n) for n in ("lock", "owner.json", "current.json", "log.jsonl"))
+ASIDE = os.environ.get("ASIDE_BIN", "aside")
+# 개인 계정 지도(사이트별 계정·들어가는 법)는 코드 밖, 사용자가 채우는 파일에 둔다
+ACCOUNTS = os.path.expanduser(os.environ.get("ASIDE_OPS_ACCOUNTS", "~/.config/aside-ops/accounts.md"))
+STAMP = "aside-ops"  # window.name 표식: 이 래퍼가 연 탭
+COMMANDS = ["exec", "repl", "read", "tabs", "status", "cleanup", "memory", "accounts", "selftest"]
+ATTACH_RE = re.compile(r"\b(attachBrowserTab|attachActiveBrowserTab)\b")
+LEAK_RE = re.compile(r"\.close\s*\(|newPage\s*\(")
+# 읽기 전용 코드에서 막는 이름: 클릭·입력·제출·스크립트 실행, 원본 page/전역 우회
+RO_DENY_RE = re.compile(
+    r"\b(click|dblclick|fill|type|press|check|uncheck|selectOption|setInputFiles|tap|dragTo|dragAndDrop|"
+    r"dispatchEvent|evaluate|evaluateHandle|addScriptTag|keyboard|mouse|submit|globalThis|window|eval|Function|"
+    r"openTab|closeTab|tabs|page|fetch|gmail|slack|notion|googleDocs|googleSheets|linkedin|youtube|passwordManager|captcha)\b")
+
+
+def now():
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def out(obj, code=None):
+    print(json.dumps(obj, ensure_ascii=False))
+    if code is not None:
+        sys.exit(code)
+
+
+def who_default():
+    return os.environ.get("ASIDE_OPS_WHO") or os.environ.get("ORCA_AGENT_SESSION_ID") or os.environ.get("CLAUDE_CODE_SESSION_ID") or f"pid{os.getppid()}"
+
+
+def pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def read_json(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def write_json(path, obj):
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(obj, f, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
+# ---------- aside 호출 ----------
+
+def aside(args, timeout=150, stdin=None):
+    """aside를 항상 명시적 하위 명령으로 부른다(맨 프롬프트로 해석되는 일 없음)."""
+    assert args and args[0] in ("exec", "repl", "session", "memory"), args
+    try:
+        p = subprocess.run([ASIDE, *args], capture_output=True, text=True, timeout=timeout, input=stdin, cwd=tempfile.gettempdir())
+        return p.returncode, p.stdout, p.stderr
+    except subprocess.TimeoutExpired as e:
+        return 124, (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or ""), "timeout"
+
+
+def repl_raw(js, timeout=150, account=None):
+    """JS 한 번 실행 → (error, text, elapsedMs)."""
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
+        f.write(js)
+        path = f.name
+    try:
+        args = ["repl", "--json", "--file", path] + (["--account", account] if account else [])
+        rc, so, se = aside(args, timeout=timeout)
+    finally:
+        os.unlink(path)
+    try:
+        run = json.loads(so)["run"]
+        text = "".join(c.get("text", "") for c in run.get("content", []) if c.get("type") == "text")
+        return run.get("error"), text, run.get("elapsedMs")
+    except (ValueError, KeyError, TypeError):
+        return f"aside repl 실패(rc={rc}): {(se or so)[-500:]}", "", None
+
+
+def list_tabs():
+    err, text, _ = repl_raw("console.log('@@T'+JSON.stringify((await listBrowserTabs()).map(t=>({id:t.targetId,url:t.url,title:t.title,active:t.active,focused:t.focusedWindow}))))", timeout=60)
+    m = re.search(r"@@T(\[.*\])", text)
+    if err or not m:
+        raise RuntimeError(f"탭 목록 실패: {err or text[-300:]}")
+    return json.loads(m.group(1))
+
+
+def close_tabs(ids, need_stamp):
+    """이 래퍼가 연 탭만 닫는다. attach는 읽기용, 닫기는 window.close()(스크립트가 연 탭에서만 동작)."""
+    if not ids:
+        return [], []
+    js = f"""
+const __ids = {json.dumps(ids)}; const __need = new Set({json.dumps(sorted(need_stamp))}); const __res = [];
+for (const id of __ids) {{
+  try {{
+    const p = await attachBrowserTab(id);
+    const info = await p.evaluate(() => [window.name, history.length]);
+    if (__need.has(id) && info[0] !== '{STAMP}') {{ __res.push([id, 'skip:no-stamp']); continue; }}
+    await p.evaluate(() => window.close());
+    __res.push([id, 'closed']);
+  }} catch (e) {{ __res.push([id, 'err:' + e.message]); }}
+}}
+await sleep(400);
+const __left = new Set((await listBrowserTabs()).map(t => t.targetId));
+console.log('@@C' + JSON.stringify(__res.map(([id, s]) => [id, s === 'closed' && __left.has(id) ? 'still-open' : s])));
+"""
+    err, text, _ = repl_raw(js, timeout=90)
+    m = re.search(r"@@C(\[.*\])", text)
+    res = json.loads(m.group(1)) if m else [[i, f"err:{err}"] for i in ids]
+    closed = [i for i, s in res if s == "closed"]
+    return closed, [{"id": i, "why": s} for i, s in res if s != "closed"]
+
+
+def sessions():
+    rc, so, _ = aside(["session", "list", "--json"], timeout=60)
+    try:
+        return json.loads(so)["sessions"]
+    except (ValueError, KeyError):
+        return []
+
+
+def archive_session(sid, running):
+    if running:
+        aside(["session", "stop", sid], timeout=60)
+    rc, so, se = aside(["session", "archive", sid], timeout=60)
+    return rc == 0
+
+
+def cli_sessions_since(start_iso):
+    return [s for s in sessions() if s.get("ephemeral") and (s.get("trigger") or {}).get("source") == "cli" and s.get("createdAt", "") >= start_iso[:19]]
+
+
+# ---------- lock ----------
+
+class Lock:
+    def __init__(self, who, what, wait):
+        os.makedirs(STATE, exist_ok=True)
+        self.fd = open(LOCK, "a+")
+        self.waited = 0.0
+        t0 = time.time()
+        shown = False
+        while True:
+            try:
+                fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if not shown:
+                    o = read_json(OWNER) or {}
+                    print(f"aside-ops: 기다림 — 지금 {o.get('who','?')}(pid {o.get('pid','?')})가 '{o.get('what','?')}' 실행 중, {o.get('since','?')}부터", file=sys.stderr)
+                    shown = True
+                if time.time() - t0 > wait:
+                    o = read_json(OWNER) or {}
+                    out({"ok": False, "error": "lock-timeout", "waited_s": round(time.time() - t0, 1), "holder": o}, 3)
+                time.sleep(1)
+        self.waited = round(time.time() - t0, 1)
+        self.recovered = None
+        prev = read_json(CURRENT)
+        if prev and not pid_alive(prev.get("pid", -1)):
+            self.recovered = recover(prev)
+        write_json(OWNER, {"who": who, "pid": os.getpid(), "what": what, "since": now().isoformat(timespec="seconds")})
+
+    def release(self):
+        for p in (OWNER, CURRENT):
+            try:
+                os.unlink(p)
+            except FileNotFoundError:
+                pass
+        fcntl.flock(self.fd, fcntl.LOCK_UN)
+        self.fd.close()
+
+
+def recover(prev):
+    """죽은 실행이 남긴 것 회수: 표식 붙은 새 탭만 닫고, 그 시간대 CLI 세션은 멈추고 보관한다."""
+    try:
+        before = set(prev.get("before", []))
+        now_ids = [t["id"] for t in list_tabs()]
+        new = [i for i in now_ids if i not in before]
+        if before and len(before & set(now_ids)) < len(before) / 2:
+            new = []  # Aside 재시작으로 id가 바뀜 → 사용자 탭을 건드리지 않게 탭 회수는 건너뜀
+        closed, left = close_tabs(new, set(new))
+        left = [x for x in left if x["why"] != "skip:no-stamp"]
+    except RuntimeError as e:
+        closed, left = [], [{"why": str(e)}]
+    arch = []
+    for s in cli_sessions_since(prev.get("start", now().isoformat())):
+        if archive_session(s["id"], s.get("status") == "running"):
+            arch.append(s["id"])
+    return {"from_pid": prev.get("pid"), "who": prev.get("who"), "tabs_closed": closed, "tabs_left": left, "sessions_archived": arch}
+
+
+# ---------- 실행 ----------
+
+PRELUDE = """
+const __ao_open = openTab, __ao_opened = [];
+openTab = async (url) => { const p = await __ao_open(url); __ao_opened.push(p.targetId);
+  try { await p.evaluate(() => { window.name = '%s'; }); } catch (e) {} return p; };
+attachBrowserTab = async () => { throw new Error('aside-ops: 사용자 탭 attach 금지 — openTab으로 새 탭을 여세요'); };
+attachActiveBrowserTab = attachBrowserTab;
+let __ao_err = null;
+try {
+""" % STAMP
+
+EPILOGUE = """
+} catch (e) { __ao_err = String(e && e.stack || e); }
+finally {
+  let __ao_closed = 0;
+  for (const t of [...tabs]) { try { await closeTab(t); __ao_closed++; } catch (e) {} }
+  console.log('@@AO' + JSON.stringify({ opened: __ao_opened, closed: __ao_closed, dir: pwd, error: __ao_err }));
+}
+"""
+
+RO_API = """
+const ro = (() => {
+  let p = null;
+  const deny = (n) => () => { throw new Error('aside-ops 읽기 전용: ' + n + ' 금지'); };
+  const api = {
+    async goto(url) { if (!/^https?:\\/\\//.test(url)) throw new Error('http(s) 주소만');
+      if (!p) p = await openTab(url); else await p.goto(url, { waitUntil: 'domcontentloaded' }); return p.url(); },
+    async snapshot(opts) { if (!p) throw new Error('먼저 ro.goto(url)'); const s = await snapshot(p, opts || {}); return s.tree; },
+    async text(sel) { if (!p) throw new Error('먼저 ro.goto(url)'); return await p.locator(sel || 'body').first().innerText(); },
+    async title() { return p ? await p.title() : null; },
+    url() { return p ? p.url() : null; },
+    async screenshot(name) { if (!p) throw new Error('먼저 ro.goto(url)');
+      // REPL 작업 폴더는 끝나면 지워지므로 base64로 내보내고 래퍼가 파일로 쓴다.
+      const f = String(name || 'shot').replace(/[^\\w.-]/g, '_').replace(/(\\.png)?$/, '.png');
+      console.log('@@SHOT' + f + ':' + (await p.screenshot()).toString('base64')); return f; },
+  };
+  return new Proxy(api, { get: (o, k) => (k in o ? o[k] : deny(String(k))) });
+})();
+"""
+
+RO_SHADOW = ["page", "tabs", "closeTab", "getTabByTargetId", "fetch", "gmail", "slack", "notion", "passwordManager", "captcha", "listBrowserTabs"]
+
+
+def check_code(code, readonly):
+    if ATTACH_RE.search(code):
+        return "사용자 탭 attach(attachBrowserTab/attachActiveBrowserTab) 금지 — openTab으로 새 탭을 여세요"
+    if LEAK_RE.search(code):
+        return "page.close()/newPage() 금지 — closeTab()은 래퍼가 끝에 알아서 함"
+    if readonly:
+        m = RO_DENY_RE.search(code)
+        if m:
+            return f"읽기 전용 모드: '{m.group(1)}' 사용 금지 — ro.goto/snapshot/text/title/url/screenshot만"
+    return None
+
+
+def build_js(code, readonly):
+    if readonly:
+        shadow = ", ".join(RO_SHADOW)
+        body = RO_API + f"await (async ({shadow}) => {{\n{code}\n}})();\n"
+    else:
+        body = code
+    return PRELUDE + body + EPILOGUE
+
+
+class Run:
+    """lock → 시작 상태 기록 → 실행 → 정리 → JSON. 신호로 중단돼도 finally에서 정리한다."""
+
+    def __init__(self, a, what):
+        self.a, self.what = a, what
+        self.t0 = time.time()
+        self.res = {"ok": False, "mode": what, "who": a.who}
+
+    def __enter__(self):
+        for s in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+            signal.signal(s, self._sig)
+        self.lock = Lock(self.a.who, self.what, self.a.wait)
+        self.res["waited_s"] = self.lock.waited
+        if self.lock.recovered:
+            self.res["recovered"] = self.lock.recovered
+        self.start = now().isoformat(timespec="seconds")
+        self.before = [t["id"] for t in list_tabs()]
+        write_json(CURRENT, {"pid": os.getpid(), "who": self.a.who, "start": self.start, "before": self.before})
+        return self
+
+    def _sig(self, signum, _):
+        raise KeyboardInterrupt(f"signal {signum}")
+
+    def __exit__(self, et, ev, tb):
+        if et is not None:
+            self.res["error"] = self.res.get("error") or f"{et.__name__}: {ev}"
+            self.res["ok"] = False
+        try:
+            self.cleanup()
+        finally:
+            self.res["elapsed_s"] = round(time.time() - self.t0, 1)
+            self.lock.release()
+            with open(LOG, "a") as f:
+                f.write(json.dumps({"at": self.start, **{k: v for k, v in self.res.items() if k != "output"}}, ensure_ascii=False) + "\n")
+            out(self.res)
+        return True
+
+    def cleanup(self):
+        now_tabs = list_tabs()
+        before, ids_now = set(self.before), {t["id"] for t in now_tabs}
+        new = [t for t in now_tabs if t["id"] not in before]
+        mine = set(self.res.get("tabs_opened", []))
+        # Aside가 재시작되면 탭 id가 전부 바뀌어 사용자 탭이 '새 탭'처럼 보인다(2026-11-24 실제 사고).
+        restarted = bool(before) and len(before & ids_now) < len(before) / 2
+        others = [t for t in new if t["id"] not in mine]
+        # exec 탭은 표식이 없다: exec이고, 재시작 아니고, 새 비활성 탭이 3개 이하일 때만 표식 없이 닫는다.
+        loose = self.what == "exec" and not restarted and 0 < len(others) <= 3 and not any(t["active"] for t in others)
+        # repl이 연 탭 목록을 받았으면 남의 새 탭은 붙지도 않는다. 못 받았을 때(중단)만 표식을 보고 고른다.
+        known = self.res.pop("_known", False)
+        cand = [t["id"] for t in new if t["id"] in mine or loose or not known]
+        need_stamp = set() if loose else {i for i in cand if i not in mine}
+        closed, left = close_tabs(cand, need_stamp)
+        urls = {t["id"]: t["url"] for t in now_tabs}
+        self.res["tabs_closed"] = self.res.get("tabs_closed_in_repl", 0) + len(closed)
+        self.res["tabs_left"] = [{**x, "url": urls.get(x["id"])} for x in left if x["why"] != "skip:no-stamp"]
+        self.res["untouched_new_tabs"] = len(new) - len(cand) + sum(x["why"] == "skip:no-stamp" for x in left)
+        if restarted:
+            self.res["aside_restarted"] = True
+        arch, busy = [], []
+        sid = self.res.get("session_id")
+        for s in cli_sessions_since(self.start):
+            running = s.get("status") == "running"
+            # 남의 실행 중 세션은 멈추지 않는다. 내 exec(id 모르면 중단된 내 exec로 본다)만 stop.
+            if running and not (s["id"] == sid or (self.what == "exec" and not sid)):
+                busy.append(s["id"])
+                continue
+            if archive_session(s["id"], running):
+                arch.append(s["id"])
+        self.res["sessions_archived"] = arch
+        if busy:
+            self.res["sessions_left"] = busy
+
+
+def cmd_repl(a, code, readonly):
+    err = check_code(code, readonly)
+    if err:
+        out({"ok": False, "mode": "repl", "error": err}, 2)
+    with Run(a, "repl-readonly" if readonly else "repl") as r:
+        e, text, ms = repl_raw(build_js(code, readonly), timeout=150, account=a.account)
+        m = re.search(r"@@AO(\{.*\})\s*$", text, re.S)
+        meta = json.loads(m.group(1)) if m else {}
+        r.res["_known"] = bool(m)
+        shown = text[: m.start()] if m else text
+        r.res.update({
+            "output": shown.strip(),
+            "tabs_opened": meta.get("opened", []),
+            "tabs_closed_in_repl": meta.get("closed", 0),
+            "session_id": os.path.basename(meta.get("dir", "")).split("_")[-1] or None,
+            "error": e or meta.get("error"),
+        })
+        r.res["ok"] = not r.res["error"]
+        shots = re.findall(r"@@SHOT([\w.-]+):([A-Za-z0-9+/=]+)", text)
+        if shots:
+            dest = os.path.abspath(a.out_dir or ".")
+            os.makedirs(dest, exist_ok=True)
+            r.res["screenshots"] = []
+            for name, b64 in shots:
+                path = os.path.join(dest, name)
+                with open(path, "wb") as f:
+                    f.write(base64.b64decode(b64))
+                r.res["screenshots"].append(path)
+        r.res["output"] = re.sub(r"@@SHOT\S+\n?", "", r.res["output"])
+
+
+EXEC_GUARD = ("[aside-ops 규칙] 사용자가 이미 연 탭은 쓰지 말고 새 탭에서만 일하세요. 결제·카드 등록·삭제·권한 변경·"
+              "메시지 보내기가 필요하면 하지 말고 멈춰서 무엇이 필요한지 답하세요.\n\n")
+
+
+def cmd_exec(a):
+    prompt = " ".join(a.prompt).strip()
+    if not re.match(r"https?://", prompt) and len(prompt.split()) < 3:
+        out({"ok": False, "mode": "exec", "error": f"프롬프트가 너무 짧음('{prompt}') — 하위 명령 오타가 프롬프트로 가는 사고 방지. 세 단어 이상으로 쓰세요"}, 2)
+    with Run(a, "exec") as r:
+        args = ["exec", "--json", "--timeout", a.timeout]
+        if a.effort:
+            args += ["--effort", a.effort]
+        if a.account:
+            args += ["--account", a.account]
+        rc, so, se = aside(args + [EXEC_GUARD + prompt], timeout=parse_dur(a.timeout) + 60)
+        try:
+            j = json.loads(so)
+        except ValueError:
+            j = {"error": (se or so)[-500:]}
+        r.res.update({"session_id": (j.get("session") or {}).get("id"), "outcome": j.get("outcome"), "output": j.get("answer"), "error": j.get("error")})
+        r.res["ok"] = j.get("outcome") == "completed" and not j.get("error")
+
+
+def parse_dur(s):
+    m = re.fullmatch(r"(\d+)([smh])", s)
+    if not m:
+        raise SystemExit(f"--timeout 형식: 30s, 5m, 1h (받은 값 {s})")
+    return int(m.group(1)) * {"s": 1, "m": 60, "h": 3600}[m.group(2)]
+
+
+def cmd_status():
+    o = read_json(OWNER)
+    holder = None
+    if o:
+        holder = {**o, "alive": pid_alive(o.get("pid", -1))}
+    ss = sessions()
+    tabs = list_tabs()
+    out({"ok": True, "lock_holder": holder,
+         "running_sessions": [{"id": s["id"], "title": s.get("title"), "source": (s.get("trigger") or {}).get("source")} for s in ss if s.get("status") == "running"],
+         "ephemeral_cli_sessions": [s["id"] for s in ss if s.get("ephemeral") and (s.get("trigger") or {}).get("source") == "cli"],
+         "tab_count": len(tabs)})
+
+
+def cmd_cleanup(a):
+    """lock을 잡고, 표식(window.name) 붙은 탭과 남은 CLI ephemeral 세션을 정리한다."""
+    lk = Lock(a.who, "cleanup", a.wait)
+    try:
+        tabs = list_tabs()
+        ids = [t["id"] for t in tabs if not t["active"]]
+        closed, left = close_tabs(ids, set(ids)) if a.tabs else ([], [])
+        left = [x for x in left if x["why"] != "skip:no-stamp"]
+        arch = []
+        for s in sessions():
+            if s.get("ephemeral") and (s.get("trigger") or {}).get("source") == "cli" and s.get("status") != "running":
+                if archive_session(s["id"], False):
+                    arch.append(s["id"])
+        out({"ok": True, "mode": "cleanup", "recovered": lk.recovered, "tabs_closed": closed, "tabs_left": left, "sessions_archived": arch})
+    finally:
+        lk.release()
+
+
+def cmd_memory(a):
+    rc, so, se = aside(["memory", "search", "--json", "-n", str(a.limit), " ".join(a.query)], timeout=60)
+    print(so if rc == 0 else json.dumps({"ok": False, "error": se[-500:]}, ensure_ascii=False))
+
+
+def cmd_accounts():
+    err, text, _ = repl_raw("console.log('@@A'+JSON.stringify((await googleAccounts.list()).map(x=>({uid:x.accountId,email:x.email,name:x.name}))))", timeout=60)
+    m = re.search(r"@@A(\[.*\])", text)
+    out({"ok": bool(m), "google_signed_in": json.loads(m.group(1)) if m else None, "error": err,
+         "account_map": ACCOUNTS if os.path.exists(ACCOUNTS) else None,
+         **({} if os.path.exists(ACCOUNTS) else {"hint": f"계정 지도 없음: accounts.example.md를 {ACCOUNTS}로 복사해 채우세요"})})
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__ + "\n하위 명령: " + ", ".join(COMMANDS))
+        return
+    if argv[0] not in COMMANDS:
+        sug = difflib.get_close_matches(argv[0], COMMANDS, n=1)
+        out({"ok": False, "error": f"없는 하위 명령 '{argv[0]}'" + (f" — '{sug[0]}'?" if sug else ""), "allowed": COMMANDS}, 2)
+    p = argparse.ArgumentParser(prog="aside-ops", allow_abbrev=False)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    def common(sp):
+        sp.add_argument("--who", default=who_default(), help="lock에 보일 이름(봇 이름)")
+        sp.add_argument("--wait", type=int, default=600, help="lock 대기 최대 초")
+        return sp
+
+    sp = common(sub.add_parser("exec", allow_abbrev=False))
+    sp.add_argument("--timeout", default="10m")
+    sp.add_argument("--effort", choices=["off", "minimal", "low", "medium", "high", "xhigh", "max"])
+    sp.add_argument("--account")
+    sp.add_argument("prompt", nargs="+")
+    sp = common(sub.add_parser("repl", allow_abbrev=False))
+    g = sp.add_mutually_exclusive_group(required=True)
+    g.add_argument("--file")
+    g.add_argument("--code")
+    sp.add_argument("--readonly", action="store_true")
+    sp.add_argument("--account")
+    sp.add_argument("--out-dir")
+    sp = common(sub.add_parser("read", allow_abbrev=False))
+    sp.add_argument("url")
+    sp.add_argument("--as", dest="fmt", choices=["text", "snapshot", "interactive"], default="text")
+    sp.add_argument("--screenshot", metavar="NAME")
+    sp.add_argument("--account")
+    sp.add_argument("--out-dir")
+    sub.add_parser("tabs")
+    sub.add_parser("status")
+    sp = common(sub.add_parser("cleanup", allow_abbrev=False))
+    sp.add_argument("--no-tabs", dest="tabs", action="store_false")
+    sp = sub.add_parser("memory", allow_abbrev=False)
+    sp.add_argument("-n", "--limit", type=int, default=5)
+    sp.add_argument("query", nargs="+")
+    sub.add_parser("accounts")
+    sub.add_parser("selftest")
+    a = p.parse_args(argv)
+
+    if a.cmd == "exec":
+        cmd_exec(a)
+    elif a.cmd == "repl":
+        code = sys.stdin.read() if a.file == "-" else open(a.file).read() if a.file else a.code
+        cmd_repl(a, code, a.readonly)
+    elif a.cmd == "read":
+        body = {"text": "console.log(await ro.text())", "snapshot": "console.log(await ro.snapshot())",
+                "interactive": "console.log(await ro.snapshot({interactive:true}))"}[a.fmt]
+        shot = f"await ro.screenshot({json.dumps(a.screenshot)});\n" if a.screenshot else ""
+        code = f"await ro.goto({json.dumps(a.url)});\nconsole.log('# ' + await ro.title() + ' — ' + ro.url());\n{shot}{body}"
+        cmd_repl(a, code, True)
+    elif a.cmd == "tabs":
+        out({"ok": True, "tabs": list_tabs(), "note": "목록만 — attach 하지 않음"})
+    elif a.cmd == "status":
+        cmd_status()
+    elif a.cmd == "cleanup":
+        cmd_cleanup(a)
+    elif a.cmd == "memory":
+        cmd_memory(a)
+    elif a.cmd == "accounts":
+        cmd_accounts()
+    elif a.cmd == "selftest":
+        os.execv(sys.executable, [sys.executable, os.path.join(os.path.dirname(os.path.realpath(__file__)), "selftest.py")])
+
+
+if __name__ == "__main__":
+    main()

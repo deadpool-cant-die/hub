@@ -45,6 +45,7 @@ done
 for s in $LOCAL/skills/*(/); do
   ln=$HOME/.agents/skills/hub-${s:t}
   [[ -e $ln ]] && continue
+  [[ ${${:-$HOME/.agents/skills/${s:t}}:A} == ${s:A} ]] && continue  # 같은 스킬이 hub- 없는 이름으로 이미 이어져 있으면 중복 안 만듦
   say "  심링크 추가: $ln"; [[ -z $dry ]] && ln -s $s $ln
 done
 
