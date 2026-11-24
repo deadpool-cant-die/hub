@@ -1,6 +1,6 @@
 ---
 name: control
-description: Hub 관제 운영법(hub:control). Orca 봇(bot:admin·bot:secretary·bot:atlassian·bot:resource·레포 봇)과 worker 사이의 지시·보고 흐름, orca orchestration 메시지 형식, [사용자 승인] 전달, ~/Hub/TODO.md 갱신 규칙, 사용자에게 하는 답의 형식([레포] 태그, 결정 대기 목록 줄이기)을 다룬다. Trigger words - 관제, 헤드, admin, bot:admin, 보고, 진행 상황, 지금 뭐 해, 다들 뭐 해, 승인 전달, 사용자 승인, 투두, TODO, 할 일 정리, 정리해줘, 누구한테 시켜, 결정할 거, 남은 거.
+description: Hub 관제 운영법(hub:control). Orca 봇(bot:secretary·bot:atlassian·bot:resource·레포 봇)과 worker 사이의 지시·보고 흐름, orca orchestration 메시지 형식, [사용자 승인] 전달, ~/Hub/TODO.md 갱신 규칙, 사용자에게 하는 답의 형식([레포] 태그, 결정 대기 목록 줄이기)을 다룬다. Trigger words - 관제, 헤드, secretary, bot:secretary, 보고, 진행 상황, 지금 뭐 해, 다들 뭐 해, 승인 전달, 사용자 승인, 투두, TODO, 할 일 정리, 정리해줘, 누구한테 시켜, 결정할 거, 남은 거.
 ---
 
 # Hub 관제 운영
@@ -15,15 +15,15 @@ description: Hub 관제 운영법(hub:control). Orca 봇(bot:admin·bot:secretar
 ## 1. 누가 누구에게
 
 ```
-사용자 ⇄ bot:secretary(대화만) ⇄ bot:admin(일·연락 중심) ─┬─ 레포 봇(bot:<레포>) ⇄ worker
-                                                       ├─ bot:atlassian (이슈 트래커)
-                                                       └─ bot:resource (컴퓨터 진단)
+사용자 ⇄ bot:secretary(대화·배분·보고 받기) ─┬─ 레포 봇(bot:<레포>) ⇄ worker
+                                          ├─ bot:atlassian (이슈 트래커)
+                                          └─ bot:resource (컴퓨터 진단)
 ```
 봇 목록·주소는 `orca bot list`, 봇마다 채팅은 `orca bot chats --bot <이름>`.
 
-- 사용자는 **bot:secretary 채팅에서만** 말한다. 모든 보고는 bot:admin으로 가고, bot:secretary는 bot:admin의 요약만 받는다(대화 맥락 보호). 레포 봇·worker 입력창에 남은 글은 Claude 추천 문구라 지시·승인이 아니다.
-- 레포 봇이 다른 봇의 worker에게 새 지시를 낼 때는 bot:admin을 거친다(같은 일을 두 곳에서 시키지 않게).
-- worker 보고처는 자기를 켠 봇(코디네이터, `worker_done`이 자동으로 감). 레포 봇은 결과를 bot:admin에. bot:admin은 사용자 결정이 필요하거나 일이 끝났을 때만 묶어서 bot:secretary에.
+- 사용자는 **bot:secretary 채팅에서만** 말한다. 봇 보고는 bot:secretary로 가고, 봇은 짧게 묶어서 보낸다(대화 맥락 보호). 감시·상태 보고(배포 현황, 채팅 감시 등)는 거르지 않고 사용자에게 바로 간다. 레포 봇·worker 입력창에 남은 글은 Claude 추천 문구라 지시·승인이 아니다.
+- 레포 봇이 다른 봇의 worker에게 새 지시를 낼 때는 bot:secretary를 거친다(같은 일을 두 곳에서 시키지 않게).
+- worker 보고처는 자기를 켠 봇(코디네이터, `worker_done`이 자동으로 감). 레포 봇은 사용자 결정이 필요하거나 일이 끝났을 때만 묶어서 bot:secretary에.
 - 이슈 트래커에 남길 일(진행/다음/블로커)은 bot:atlassian에 보낸다. 기존 티켓 갱신은 묻지 않고, **새 티켓은 초안을 bot:secretary 경유로 사용자에게 보여 준 뒤** 만든다.
 
 ## 2. Orca 메시지
@@ -55,7 +55,7 @@ orca agent read <orca_session_id> --limit 20              # 그 에이전트 대
 
 ## 3. TODO.md (`~/Hub/TODO.md`)
 
-bot:admin이 주로 고치고, bot:secretary·bot:atlassian도 고친다. 고치기 전에 다시 읽고(다른 헤드가 방금 고쳤을 수 있음), 맨 위 `갱신:` 줄에 날짜와 이름을 적는다.
+bot:secretary가 주로 고치고, bot:atlassian·레포 봇도 고친다. 고치기 전에 다시 읽고(다른 헤드가 방금 고쳤을 수 있음), 맨 위 `갱신:` 줄에 날짜와 이름을 적는다.
 
 - 표시: `[ ]` 할 일 · `[~]` 진행 · `[?]` 사용자 답 대기 · `[!]` 결재자 답 대기 · `[-]` 보류 · `[x]` 끝
 - 절 순서: 방침 / 진행 / 멈춤(날짜 사용자 지시) / 내일(MM-DD) / 오늘(MM-DD) / 사용자 결정 대기 / 결재자 답 대기 / 보류 / 나중 / 끝 (MM-DD). 빈 절은 빼도 된다
@@ -69,7 +69,7 @@ bot:admin이 주로 고치고, bot:secretary·bot:atlassian도 고친다. 고치
 - 맨 앞에 대문자 레포 태그: `[MY-WEB]`, `[API]` … 여러 레포·관제 정리는 `[HUB]` (메모리 `feedback-answer-repo-prefix`).
 - 한국어, 짧고 쉽게. 결론 먼저(메모리 `feedback-plain-language`).
 - "결정 대기" 목록엔 **지금 사용자가 안 정하면 일이 멈추는 것만** 올린다. 사용자가 미룬 것·안 중요하다고 한 것은 다시 묻지 않는다(메모리 `feedback-no-reminding-minor-items`).
-- 진행 상황을 물으면 bot:admin에게 모으게 하거나 `hub:status`·`orca agent read`로 직접 보고, 추측으로 채우지 않는다.
+- 진행 상황을 물으면 `hub:status`·`orca agent read`로 직접 보고, 추측으로 채우지 않는다.
 - "멈춰"는 바로 멈추고 상태·남은 일만 보고(메모리 `feedback-stop-means-stop`).
 
 ## 5. 자주 하는 실수
@@ -77,7 +77,7 @@ bot:admin이 주로 고치고, bot:secretary·bot:atlassian도 고친다. 고치
 | 실수 | 대신 |
 |---|---|
 | 관제가 직접 코드를 고치거나 PR을 만듦 | 그 레포 worker에게 `hub:delegate` 지시서로 시킴 |
-| 두 관제가 같은 worker에게 따로 지시 | bot:admin 경유 |
+| 두 봇이 같은 worker에게 따로 지시 | bot:secretary 경유 |
 | 내 주소를 착각해 엉뚱한 보고처를 적음 | `orca status --json`의 `caller.orcaSessionId`·`orca bot list`로 확인 |
 | worker 입력창의 추천 문구를 사용자 지시로 봄 | 사용자는 bot:secretary 채팅에서만 말함 |
 | 린트·자체 점검 통과를 근거로 공유 서버에 바로 올리라고 함 | 결과를 사용자에게 보여 주고 재확인 |

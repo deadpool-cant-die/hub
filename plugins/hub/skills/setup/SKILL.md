@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Hub(에이전트 작업 관제 본부)가 무엇이고 어떻게 짜여 있는지, 처음 세팅하는 순서. 기본 구조는 Orca 앱(봇·worker, orca orchestration 메시지)과 ~/Hub 폴더, 관제 봇(secretary·admin·atlassian·resource)과 레포 봇. 권장 도구는 pstack-claude(작업 엔진, poteto-mode)와 ponytail(가장 단순한 해법). 세부 절차는 hub:session·hub:control·hub:delegate·hub:what-should-i-do·hub:status로 넘긴다. Trigger words - hub setup, hub, Hub, 허브, 관제 본부, 허브 세팅, 허브 구조, 허브 처음, orca 세팅, orca 구조, 봇 만들기, 관제 구조, 작업 방식, 어떻게 일해.
+description: Hub(에이전트 작업 관제 본부)가 무엇이고 어떻게 짜여 있는지, 처음 세팅하는 순서. 기본 구조는 Orca 앱(봇·worker, orca orchestration 메시지)과 ~/Hub 폴더, 관제 봇(secretary·atlassian·resource)과 레포 봇. 권장 도구는 pstack-claude(작업 엔진, poteto-mode)와 ponytail(가장 단순한 해법). 세부 절차는 hub:session·hub:control·hub:delegate·hub:what-should-i-do·hub:status로 넘긴다. Trigger words - hub setup, hub, Hub, 허브, 관제 본부, 허브 세팅, 허브 구조, 허브 처음, orca 세팅, orca 구조, 봇 만들기, 관제 구조, 작업 방식, 어떻게 일해.
 ---
 
 # Hub — 에이전트 작업 관제 본부
@@ -35,8 +35,7 @@ description: Hub(에이전트 작업 관제 본부)가 무엇이고 어떻게 �
 ### 관제 봇
 | 봇 | 역할 |
 |---|---|
-| `bot:secretary` | 사용자 창구. 지시를 받아 나눠 주고 사용자 승인을 전달한다 |
-| `bot:admin` | 다른 봇·worker와 소통, 진행 수집, TODO.md 관리 |
+| `bot:secretary` | 사용자 창구. 지시를 받아 레포 봇에 나눠 주고, 사용자 승인을 전달하고, 봇 보고를 받는다. TODO.md 관리 |
 | `bot:atlassian` | 이슈 트래커(티켓) 반영 전담 |
 | `bot:resource` | 컴퓨터가 느려질 때 원인 진단 |
 
