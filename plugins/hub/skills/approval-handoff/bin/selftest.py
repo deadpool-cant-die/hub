@@ -61,6 +61,19 @@ assert b[0] == "[사용자 승인]" and b[1] == "출처: Orca 채팅(2026-11-24 
 assert b[3].startswith("대상: PR #301") and b[4] == "할 일: 운영 배포", b
 assert open(j["body_file"]).read() == j["body"]
 
+# 오탐 회귀(2026-11-24 secretary 실사용): 보고·질문 표현, 명사로만 쓴 말은 위험 동작이 아님
+MERGE_OK = ["--quote", "ㅇㅇ.", "--proposal", "minu.page #47: 머지할까요?"]
+rc, j = run(*BASE, *MERGE_OK, "--task", "#47(대표님 배포 기록 옮김, 문서만)을 머지. 머지 커밋을 보고. "
+            "#38·#40을 닫거나 댓글 다는 건 범위 밖이라 하지 말고, 닫을지 secretary에 물을 것.", "--dry-run")
+assert rc == 0 and j["warnings"] == [], j
+rc, j = run(*BASE, "--quote", "확인해 줘", "--task", "머지 커밋 해시를 secretary에 알려. 카드 단위 캡처, payload 확인, 목록 재생성, dropdown 고침", "--dry-run")
+assert rc == 0 and j["warnings"] == [], j
+# 진짜 보내기는 계속 걸림
+for t, k in [("결과를 gchat으로 보내", "보내기"), ("대표님께 메일 전송", "보내기"), ("send it to slack", "보내기"), ("PR #301 merge", "머지")]:
+    rc, j = run(*BASE, "--quote", "확인해 줘", "--task", t)
+    assert rc == 3 and j["warnings"] == [k], (t, j)
+
+
 # 실제 전송 경로(가짜 orca): --body-file로만, handoff 타입
 rc, j = run(*BASE, "--quote", "리뷰 반영해", "--task", "리뷰 반영 커밋", "--item", "3")
 assert rc == 0 and j["sent"], j

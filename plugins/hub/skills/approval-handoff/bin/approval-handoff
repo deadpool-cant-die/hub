@@ -11,14 +11,16 @@ AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{1,2}(시대|:\d{2})$")
 BOT_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 SHELL_RE = re.compile(r"`|\$\(")
 # 위험 동작: 할 일에 있는데 사용자 원문(또는 승인한 제안 원문)에 같은 종류 말이 없으면 경고
+# 명사로만 쓰인 말("배포 기록", "머지 커밋", "카드 단위", "payload")은 동작이 아니라 빼고, 보내기는 실제 보내는 동사·채널만
+# shortcut: 낱말 맞추기라 "댓글 달지 말 것" 같은 부정문·처음 보는 말투는 못 가림, 오탐이 또 나오면 그 사례를 selftest에 넣고 좁힌다
 RISKY = {
-    "소리": r"소리|음소거|볼륨|스피커|재생|사운드|unmute|volume|speaker|audio|\bsay\b|afplay",
-    "배포": r"배포|릴리[스즈]|태그|운영|deploy|release|\btag\b|prod",
-    "보내기": r"보내|전송|발송|메시지|메일|댓글|공지|올려|게시|send|post|comment|gchat|slack|email",
+    "소리": r"소리|음소거|볼륨|스피커|재생(?!성)|사운드|unmute|volume|speaker|audio|\bsay\b|afplay",
+    "배포": r"배포(?!\s*(기록|현황|내역|이력))|릴리[스즈]|태그|운영|deploy|release|\btag\b|\bprod\b|production",
+    "보내기": r"보내|전송|발송|메일|게시|gchat|slack|\bsend\b|\bpost\b",
     "푸시": r"푸시|push",
-    "머지": r"머지|병합|merge",
-    "삭제": r"삭제|지우|지워|폐기|제거|delete|remove|\brm\b|drop|revoke",
-    "결제": r"결제|카드|유료|구독|과금|청구|pay|billing|subscri",
+    "머지": r"머지(?!\s*커밋)|병합|merge(?!\s*commit)",
+    "삭제": r"삭제|지우|지워|폐기|제거|delete|remove|\brm\b|\bdrop\b|revoke",
+    "결제": r"결제|카드\s*(등록|결제)|유료|구독|과금|청구|\bpay(ment)?\b|billing|subscription",
     "권한": r"권한|보호 ?규칙|브랜치 보호|enforce_admins|admin|permission",
 }
 
