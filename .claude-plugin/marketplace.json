@@ -5,7 +5,7 @@
     {
       "name": "hub",
       "source": "./plugins/hub",
-      "description": "Agent control-tower workflow on the Orca app: hub:setup, session, layout, control, delegate, what-should-i-do, status, dont-waste-sessions, clawpod"
+      "description": "Agent control-tower workflow on the Orca app: hub:setup, session, layout, control, delegate, what-should-i-do, status, dont-waste-sessions"
     }
   ]
 }
